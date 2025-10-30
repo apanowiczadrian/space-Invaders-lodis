@@ -8,8 +8,6 @@ const VIRTUAL_WIDTH = 1200;
 const VIRTUAL_HEIGHT = 600;
 
 let game;
-let gameBuffer; // Offscreen buffer for all game rendering
-
 // --- Scaling and Offset Globals ---
 let scaleFactor = 1;
 let offsetX = 0;
@@ -26,17 +24,17 @@ function getViewportDimensions() {
 
 function updateScaleAndOffset() {
     const { width, height } = getViewportDimensions();
-    const gameAspect = VIRTUAL_WIDTH / VIRTUAL_HEIGHT;
     const screenAspect = width / height;
-    
-    if (screenAspect > gameAspect) {
+    const gameAspect = VIRTUAL_WIDTH / VIRTUAL_HEIGHT;
+
+    if (screenAspect > gameAspect) { // Screen is wider than the game (letterbox)
         scaleFactor = height / VIRTUAL_HEIGHT;
-        offsetX = (width - (VIRTUAL_WIDTH * scaleFactor)) / 2;
+        offsetX = (width - VIRTUAL_WIDTH * scaleFactor) / 2;
         offsetY = 0;
-    } else {
+    } else { // Screen is taller than the game (pillarbox)
         scaleFactor = width / VIRTUAL_WIDTH;
         offsetX = 0;
-        offsetY = (height - (VIRTUAL_HEIGHT * scaleFactor)) / 2;
+        offsetY = (height - VIRTUAL_HEIGHT * scaleFactor) / 2;
     }
 }
 
@@ -62,15 +60,9 @@ function setup() {
     const { width, height } = getViewportDimensions();
     const canvas = createCanvas(width, height);
     const context = canvas.elt.getContext('2d');
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = 'high';
-    
-    gameBuffer = createGraphics(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-    
-    let targetPixelDensity = window.devicePixelRatio || 1;
-    if (width < 1024) targetPixelDensity = Math.min(targetPixelDensity, 2);
-    pixelDensity(targetPixelDensity);
-    gameBuffer.pixelDensity(targetPixelDensity);
+    context.imageSmoothingEnabled = false; // Use false for crisp pixel art
+
+    pixelDensity(1); // Force pixel density to 1 for performance
 
     updateScaleAndOffset();
     game.setup();
@@ -81,39 +73,46 @@ function draw() {
     const deltaTime = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
 
-    drawGameOnBuffer(deltaTime);
-    background(0);
-    image(gameBuffer, offsetX, offsetY, VIRTUAL_WIDTH * scaleFactor, VIRTUAL_HEIGHT * scaleFactor);
+    background(0); // Clear the screen
+
+    // Apply scaling and translation
+    push();
+    translate(offsetX, offsetY);
+    scale(scaleFactor);
+
+    drawGame(deltaTime); // Draw all game elements
+
+    pop();
 }
 
 function windowResized() {
     handleResizeEvent();
 }
 
-// Game Logic (draws to buffer)
-function drawGameOnBuffer(deltaTime) {
+// Game Logic
+function drawGame(deltaTime) {
     if (game.isTouchDevice) {
         handleTouches();
     }
 
     if (window.innerWidth < window.innerHeight && game.isTouchDevice) {
-        gameBuffer.background(0);
-        gameBuffer.fill(255);
-        gameBuffer.textAlign(CENTER, CENTER);
-        gameBuffer.textSize(20);
-        gameBuffer.text("Please rotate your device", VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+        background(0);
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(20);
+        text("Please rotate your device", VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
         return;
     }
 
-    gameBuffer.background(0);
-    gameBuffer.strokeWeight(1);
+    background(0);
+    strokeWeight(1);
 
     if (game.gameOver) {
-        gameBuffer.textAlign(CENTER);
-        gameBuffer.fill(255);
-        gameBuffer.textSize(32);
-        gameBuffer.text(game.gameWin ? "Winner" : "Game Over", VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
-        gameBuffer.text("Score: " + game.score, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
+        textAlign(CENTER);
+        fill(255);
+        textSize(32);
+        text(game.gameWin ? "Winner" : "Game Over", VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+        text("Score: " + game.score, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
         game.retryButton.draw();
         return;
     }
@@ -213,15 +212,15 @@ function keyPressed() {
 class CanvasButton {
     constructor(x, y, w, h, text) { this.x = x; this.y = y; this.w = w; this.h = h; this.text = text; }
     draw() {
-        gameBuffer.stroke(255);
-        gameBuffer.fill(0);
-        gameBuffer.rectMode(CENTER);
-        gameBuffer.rect(this.x, this.y, this.w, this.h, 10);
-        gameBuffer.fill(255);
-        gameBuffer.noStroke();
-        gameBuffer.textAlign(CENTER, CENTER);
-        gameBuffer.textSize(32);
-        gameBuffer.text(this.text, this.x, this.y);
+        stroke(255);
+        fill(0);
+        rectMode(CENTER);
+        rect(this.x, this.y, this.w, this.h, 10);
+        fill(255);
+        noStroke();
+        textAlign(CENTER, CENTER);
+        textSize(32);
+        text(this.text, this.x, this.y);
     }
     hitTest(virtualX, virtualY) {
         return (virtualX > this.x - this.w / 2 && virtualX < this.x + this.w / 2 &&
@@ -260,9 +259,9 @@ class Game {
     initEnemies() { for (let i = 0; i < 5; i++) { for (let j = 0; j < 10; j++) { this.enemies.push(new Enemy(j * 60 + 60, i * 40 + 80)); } } }
     drawStars(dt) {
         for (let star of this.stars) {
-            gameBuffer.stroke(255);
-            gameBuffer.strokeWeight(star.size);
-            gameBuffer.point(star.x, star.y);
+            stroke(255);
+            strokeWeight(star.size);
+            point(star.x, star.y);
             star.y -= star.speed * dt;
             if (star.y < 0) {
                 star.y = VIRTUAL_HEIGHT;
@@ -271,17 +270,17 @@ class Game {
         }
     }
     updateKilledText() {
-        gameBuffer.textAlign(CENTER);
-        gameBuffer.strokeWeight(0.5);
-        gameBuffer.fill(255);
-        gameBuffer.textSize(12);
-        gameBuffer.text("Killed Enemies: " + this.killedEnemies, 80, 30);
+        textAlign(CENTER);
+        strokeWeight(0.5);
+        fill(255);
+        textSize(12);
+        text("Killed Enemies: " + this.killedEnemies, 80, 30);
     }
 }
 
 class Player {
     constructor() { this.x = VIRTUAL_WIDTH / 2; this.y = VIRTUAL_HEIGHT - 70; this.w = 50; this.h = 50; this.speed = 300; }
-    show() { gameBuffer.image(game.spaceImg, this.x, this.y, this.w, this.h); }
+    show() { image(game.spaceImg, this.x, this.y, this.w, this.h); }
     move(dt) {
         if ((keyIsDown(LEFT_ARROW) || game.isLeftPressed) && this.x > 0) { this.x -= this.speed * dt; }
         if ((keyIsDown(RIGHT_ARROW) || game.isRightPressed) && this.x < VIRTUAL_WIDTH - this.w) { this.x += this.speed * dt; }
@@ -290,7 +289,7 @@ class Player {
 
 class Enemy {
     constructor(x, y) { this.x = x; this.y = y; this.w = 50; this.h = 50; this.speed = 60; this.direction = 1; }
-    show() { gameBuffer.image(game.enemyImg, this.x, this.y, this.w, this.h); }
+    show() { image(game.enemyImg, this.x, this.y, this.w, this.h); }
     move(dt) {
         this.x += this.speed * this.direction * dt;
         if (this.x > VIRTUAL_WIDTH - this.w || this.x < 0) { this.direction *= -1; this.y += 10; }
@@ -301,9 +300,9 @@ class Enemy {
 class Projectile {
     constructor(x, y, direction) { this.x = x; this.y = y; this.r = 10; this.speed = 300; this.direction = direction; this.active = false; }
     show() {
-        gameBuffer.fill(255);
-        gameBuffer.noStroke();
-        gameBuffer.ellipse(this.x, this.y, this.r * 2, this.r * 2);
+        fill(255);
+        noStroke();
+        ellipse(this.x, this.y, this.r * 2, this.r * 2);
     }
     move(dt) { this.y += this.speed * this.direction * dt; }
     hit(obj) { let d = dist(this.x, this.y, obj.x + obj.w / 2, obj.y + obj.h / 2); return d < this.r + obj.w / 2; }

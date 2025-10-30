@@ -5,6 +5,12 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
+    
+    <!-- iOS/Android Full-Screen and Viewport Control -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script src="js/p5.min.js"></script>
     <script src="js/sketch.js"></script>
      <script>
@@ -15,6 +21,7 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+    background-color: #000; /* Black background for the page */
   }
 
         canvas {
@@ -26,11 +33,47 @@
             -webkit-user-select: none; /* Safari */
             user-select: none;
             -webkit-touch-callout: none; /* iOS */
+            
+            /* Crisp rendering and disable touch actions */
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            touch-action: none;
+        }
+
+        /* Orientation Hint for Portrait Mode */
+        #orientation-hint {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+            font-size: 1.5em;
+            text-align: center;
+            z-index: 1000;
+        }
+
+        @media (orientation: portrait) {
+            #orientation-hint {
+                display: flex;
+            }
+            canvas {
+                display: none;
+            }
         }
 </style>
 
   </head>
   <body>
+    <div id="orientation-hint">
+        Please rotate your device to landscape mode to play.
+    </div>
     <script>
       // Prevent pinch-to-zoom
       document.addEventListener('touchmove', function (event) {
