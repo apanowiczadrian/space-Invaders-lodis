@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <title>spaceInv</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
     <script src="js/p5.min.js"></script>
     <script src="js/sketch.js"></script>
      <script>
@@ -12,9 +16,38 @@
     padding: 0;
     overflow: hidden;
   }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            /* Prevent iOS text selection/callout behaviors */
+            -webkit-user-select: none; /* Safari */
+            user-select: none;
+            -webkit-touch-callout: none; /* iOS */
+        }
 </style>
 
   </head>
   <body>
+    <script>
+      // Prevent pinch-to-zoom
+      document.addEventListener('touchmove', function (event) {
+        if (event.scale !== 1) {
+          event.preventDefault();
+        }
+      }, { passive: false });
+
+      // Prevent double-tap-to-zoom
+      var lastTouchEnd = 0;
+      document.addEventListener('touchend', function (event) {
+        var now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, false);
+    </script>
   </body>
 </html>

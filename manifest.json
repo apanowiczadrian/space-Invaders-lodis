@@ -1,0 +1,21 @@
+{
+  "short_name": "spaceInv",
+  "name": "Space Invaders",
+  "icons": [
+    {
+      "src": "assets/spaceship.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "assets/spaceship.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "theme_color": "#000000",
+  "background_color": "#000000"
+}
