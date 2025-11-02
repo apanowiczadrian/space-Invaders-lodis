@@ -63,3 +63,20 @@ http-server -c-1
 - **Kolor:** Zielony (ciepło) → Żółty → Niebieski (FROZEN)
 - Kiedy broń jest zamrożona, nie możesz strzelać przez krótki czas
 
+---
+
+## Autor i Licencja
+
+**Autor:** Adrian Apanowicz
+
+**Licencja:** MIT License
+
+Gra jest udostępniona za darmo na licencji open-source. Możesz:
+- ✅ Używać kodu w projektach osobistych i komercyjnych
+- ✅ Modyfikować i dostosowywać kod
+- ✅ Czerpać zyski z gry i jej modyfikacji
+- ✅ Publikować i dystrybuować
+
+**Warunek:** Przy publikacji należy zachować informację o autorze (Adrian Apanowicz) w kodzie lub dokumentacji.
+
+Copyright (c) 2025 Adrian Apanowicz
