@@ -8,7 +8,7 @@ The player controls a spaceship, shooting at aliens that move side-to-side and d
 
 ## Key Files
 
-*   `index.html`: Main HTML file with viewport settings for mobile and PWA capabilities.
+*   `index.html`: Main HTML file with viewport settings for mobile, PWA capabilities, and safe area support.
 *   `js/sketch.js`: Core game logic, optimized for performance and cross-platform compatibility.
 *   `assets/`: Contains game assets like `spaceship.png` and `alien1.png`.
 
@@ -34,14 +34,60 @@ A local web server is required to run the game.
 
 The game uses a performance-oriented architecture designed for stability across all devices.
 
-*   **Virtual Resolution:** The game logic operates at a fixed virtual resolution (`1200x600`) and is scaled to fit any screen size using a letterbox/pillarbox system. This ensures a consistent layout.
+*   **Fixed Safe Zone System:** The game logic operates within a fixed safe zone of 1200x600, ensuring a consistent gameplay area for all players.
+    *   **Desktop:** The game is displayed with a 1000px viewport for smaller sprites.
+    *   **Mobile:** The game is displayed in full screen with a 1200px viewport.
 
-*   **Direct Rendering & Performance:**
-    *   The game renders directly to the main canvas, eliminating the overhead of an offscreen buffer.
-    *   `pixelDensity(1)` is enforced to maximize performance, especially on mobile devices.
-    *   `imageSmoothingEnabled = false` is used to render crisp, pixel-perfect graphics.
+*   **Invisible Touch Controls:**
+    *   **Movement:** The left 35% of the screen is dedicated to movement. The left half of this area moves the ship left, and the right half moves the ship right.
+    *   **Firing:** The right 35% of the screen is dedicated to firing.
+    *   **Visual Feedback:** Subtle visual feedback is provided during touch interactions.
 
-*   **Mobile-First Design:**
-    *   **Forced Landscape:** On mobile devices, a message prompts the user to rotate their screen to landscape mode.
-    *   **Full-Screen & No Zoom:** The `index.html` file is configured with meta tags to provide a full-screen PWA experience and prevent pinch-to-zoom or other scaling gestures.
-    *   **Touch Controls:** The game includes on-screen touch controls for moving and firing.
+*   **Developer Overlay:** A developer overlay can be toggled by pressing the 'D' key, showing real-time information such as:
+    *   FPS (current and average) with color-coded status.
+    *   Device type.
+    *   Virtual resolution.
+    *   Safe zone dimensions and offset.
+    *   Scale factor.
+
+*   **Safe Area Support:** The game automatically handles notches, Dynamic Islands, and home indicators on iOS devices, ensuring a true full-screen experience.
+
+*   **Performance Optimizations:**
+    *   **Batch Rendering:** Stars are rendered in a single batch operation for improved performance.
+    *   **Projectile Despawning:** Projectiles are despawned when they move outside the safe zone.
+    *   **Efficient Touch Handling:** The game uses an efficient multi-touch handling system.
+
+## Controls
+
+### Keyboard (Desktop):
+- **Arrow Keys** - Move the ship.
+- **Space** - Fire.
+- **D** - Toggle the developer overlay.
+
+### Touch (Mobile):
+- **Left side of the screen** - Touch to move the ship.
+    - Touch the left half of the movement area to move left.
+    - Touch the right half of the movement area to move right.
+- **Right side of the screen** - Touch to fire.
+
+## Testing
+
+### Desktop Test:
+1.  Open the game in a browser.
+2.  Press 'D' to view the developer overlay.
+3.  Check that the FPS is around 60.
+4.  The virtual resolution should be approximately 1000x600.
+5.  The safe zone should be 1200x600.
+
+### Mobile Test:
+1.  Open the game on a mobile device.
+2.  Rotate the device to landscape mode.
+3.  Touch the left side of the screen to move the ship.
+4.  Touch the right side of the screen to fire.
+5.  The FPS should be between 55-60.
+
+### Fairness Test:
+1.  Compare the game on desktop and mobile.
+2.  Player speed should be 300px/s (4 seconds to cross the screen).
+3.  Enemies should spawn in the same positions.
+4.  The safe zone should be identical (1200x600).

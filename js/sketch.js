@@ -1,98 +1,113 @@
 p5.disableFriendlyErrors = true;
 
-// =================================================
-// Reverted to: Hybrid Approach (Stable, Pixelated)
-// =================================================
-
-const VIRTUAL_WIDTH = 1200;
-const VIRTUAL_HEIGHT = 600;
+import { SAFE_ZONE_WIDTH, SAFE_ZONE_HEIGHT } from './core/constants.js';
+import {
+    getVirtualWidth,
+    getVirtualHeight,
+    getSafeZoneX,
+    getSafeZoneY,
+    getScaleFactor,
+    getOffsetX,
+    getOffsetY,
+    getViewportDimensions,
+    updateGameDimensions,
+    handleResizeEvent
+} from './core/viewport.js';
+import {
+    handleTouches,
+    handleMousePressed,
+    handleTouchStarted,
+    handleKeyPressed
+} from './core/input.js';
+import { Game } from './Game.js';
 
 let game;
-// --- Scaling and Offset Globals ---
-let scaleFactor = 1;
-let offsetX = 0;
-let offsetY = 0;
-let resizeTimeoutId = null;
-
-// Core Sizing and Scaling Logic
-function getViewportDimensions() {
-    if (window.visualViewport) {
-        return { width: window.visualViewport.width, height: window.visualViewport.height };
-    }
-    return { width: window.innerWidth, height: window.innerHeight };
-}
-
-function updateScaleAndOffset() {
-    const { width, height } = getViewportDimensions();
-    const screenAspect = width / height;
-    const gameAspect = VIRTUAL_WIDTH / VIRTUAL_HEIGHT;
-
-    if (screenAspect > gameAspect) { // Screen is wider than the game (letterbox)
-        scaleFactor = height / VIRTUAL_HEIGHT;
-        offsetX = (width - VIRTUAL_WIDTH * scaleFactor) / 2;
-        offsetY = 0;
-    } else { // Screen is taller than the game (pillarbox)
-        scaleFactor = width / VIRTUAL_WIDTH;
-        offsetX = 0;
-        offsetY = (height - VIRTUAL_HEIGHT * scaleFactor) / 2;
-    }
-}
-
-function handleResizeEvent() {
-    clearTimeout(resizeTimeoutId);
-    resizeTimeoutId = setTimeout(() => {
-        const { width, height } = getViewportDimensions();
-        resizeCanvas(width, height);
-        updateScaleAndOffset();
-    }, 150);
-}
-
 let lastTime = 0;
 
 // p5.js Core Functions
-function preload() {
+window.preload = function() {
     game = new Game();
     game.spaceImg = loadImage("./assets/spaceship.png");
     game.enemyImg = loadImage("./assets/alien1.png");
+    game.bossImg = loadImage("./assets/boss.png");
+    game.cometImg = loadImage("./assets/comet.png");
+    game.heartImg = loadImage("./assets/heart.png");
+
+    // Load penguin enemy animations
+    game.penguinIdleImg = loadImage("./assets/penguin/1.png");
+    game.penguinDeathFrames = [];
+    for (let i = 2; i <= 9; i++) {
+        game.penguinDeathFrames.push(loadImage(`./assets/penguin/${i}.png`));
+    }
+
+    // Load power-up icons
+    game.shieldImg = loadImage("./assets/shield.png");
+    game.autofireImg = loadImage("./assets/autofire.png");
+    game.tripleshotImg = loadImage("./assets/tripleshot.png");
+    game.rocketImg = loadImage("./assets/rocket.png");
 }
 
-function setup() {
+window.setup = function() {
     const { width, height } = getViewportDimensions();
     const canvas = createCanvas(width, height);
     const context = canvas.elt.getContext('2d');
-    context.imageSmoothingEnabled = false; // Use false for crisp pixel art
+    context.imageSmoothingEnabled = false;
 
-    pixelDensity(1); // Force pixel density to 1 for performance
+    pixelDensity(1);
 
-    updateScaleAndOffset();
+    updateGameDimensions(game);
     game.setup();
 }
 
-function draw() {
+window.draw = function() {
     const currentTime = millis();
     const deltaTime = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
 
-    background(0); // Clear the screen
+    background(0);
 
-    // Apply scaling and translation
     push();
-    translate(offsetX, offsetY);
-    scale(scaleFactor);
+    translate(getOffsetX(), getOffsetY());
+    scale(getScaleFactor());
 
-    drawGame(deltaTime); // Draw all game elements
+    drawGame(deltaTime);
 
     pop();
 }
 
-function windowResized() {
-    handleResizeEvent();
+window.windowResized = function() {
+    handleResizeEvent(game, resizeCanvas);
+}
+
+// Visual Safe Zone Indicator
+function drawSafeZone() {
+    push();
+
+    // Subtle border
+    stroke(100, 100, 150, 80);
+    strokeWeight(2);
+    noFill();
+    rect(getSafeZoneX(), getSafeZoneY(), SAFE_ZONE_WIDTH, SAFE_ZONE_HEIGHT);
+
+    // Corner markers (visible only in dev mode)
+    if (game.devOverlay && game.devOverlay.enabled) {
+        fill(0, 255, 0, 150);
+        noStroke();
+        const markerSize = 10;
+
+        rect(getSafeZoneX(), getSafeZoneY(), markerSize, markerSize);
+        rect(getSafeZoneX() + SAFE_ZONE_WIDTH - markerSize, getSafeZoneY(), markerSize, markerSize);
+        rect(getSafeZoneX(), getSafeZoneY() + SAFE_ZONE_HEIGHT - markerSize, markerSize, markerSize);
+        rect(getSafeZoneX() + SAFE_ZONE_WIDTH - markerSize, getSafeZoneY() + SAFE_ZONE_HEIGHT - markerSize, markerSize, markerSize);
+    }
+
+    pop();
 }
 
 // Game Logic
 function drawGame(deltaTime) {
     if (game.isTouchDevice) {
-        handleTouches();
+        handleTouches(game, touches);
     }
 
     if (window.innerWidth < window.innerHeight && game.isTouchDevice) {
@@ -100,28 +115,57 @@ function drawGame(deltaTime) {
         fill(255);
         textAlign(CENTER, CENTER);
         textSize(20);
-        text("Please rotate your device", VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+        text("Please rotate your device", getVirtualWidth() / 2, getVirtualHeight() / 2);
         return;
     }
 
     background(0);
+
+    // Draw safe zone border
+    drawSafeZone();
+
     strokeWeight(1);
 
     if (game.gameOver) {
+        // Finalize statistics when game ends
+        const stats = game.finalizeStats();
+
+        // Log detailed stats to console only once
+        if (!game.statsLogged) {
+            console.log("Game Statistics:", stats);
+            game.statsLogged = true;
+        }
+
         textAlign(CENTER);
         fill(255);
         textSize(32);
-        text(game.gameWin ? "Winner" : "Game Over", VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
-        text("Score: " + game.score, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
+        text("Game Over", getVirtualWidth() / 2, getVirtualHeight() / 2 - 100);
+
+        textSize(16);
+        text("Score: " + game.score, getVirtualWidth() / 2, getVirtualHeight() / 2 - 60);
+        text("Wave: " + game.wave, getVirtualWidth() / 2, getVirtualHeight() / 2 - 40);
+
+        // Format time as MM:SS
+        const totalSeconds = Math.floor(game.stats.totalGameTime);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const timeString = minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+
+        text("Time: " + timeString, getVirtualWidth() / 2, getVirtualHeight() / 2 - 20);
+        text("Shots/sec: " + stats.shotsPerSecond, getVirtualWidth() / 2, getVirtualHeight() / 2);
+
         game.retryButton.draw();
+        game.devOverlay.draw(game);
         return;
     }
 
-    if (game.isTouchDevice) {
-        game.moveLeftButton.draw();
-        game.moveRightButton.draw();
-        game.fireButton.draw();
+    // Draw touch feedback (invisible strips with subtle feedback)
+    if (game.isTouchDevice && game.leftTouchStrip) {
+        game.leftTouchStrip.draw();
+        game.rightTouchStrip.draw();
     }
+
+    game.drawStars(deltaTime);
 
     game.player.show();
     game.player.move(deltaTime);
@@ -131,210 +175,171 @@ function drawGame(deltaTime) {
         game.enemies[i].move(deltaTime);
     }
 
+    // Check entire formation boundaries (all enemies move together)
+    game.updateFormationMovement();
+
     for (let p of game.playerProjectilePool.pool) {
         if (!p.active) continue;
+
+        if (p.isOutOfBounds()) {
+            game.playerProjectilePool.release(p);
+            continue;
+        }
+
         p.show();
         p.move(deltaTime);
+
+        // Check collision with enemies
+        let hitSomething = false;
         for (let j = game.enemies.length - 1; j >= 0; j--) {
-            if (p.hit(game.enemies[j])) {
-                game.killedEnemies++;
-                game.score++;
-                game.enemies.splice(j, 1);
+            const enemy = game.enemies[j];
+            // Can only hit enemies that are active, NOT dying, and NOT flying in
+            if (p.hit(enemy) && enemy.active && enemy.animationState !== 'dying' && !enemy.isFlying) {
+                // Enemy takes damage
+                const destroyed = enemy.takeDamage();
+
+                if (destroyed) {
+                    // Points per kill increase with wave (base 1 + wave bonus)
+                    const killPoints = (1 + Math.floor(game.wave / 2)) * (enemy.type === 'boss' ? 10 : 1);
+                    game.score += killPoints;
+                    game.killedEnemies++;
+
+                    // Try to spawn power-up at enemy position
+                    game.powerUpManager.trySpawnPowerUp(enemy.x + enemy.w / 2, enemy.y);
+
+                    // Don't remove from array yet - let death animation play
+                    // Enemy will be removed in cleanup pass below
+                }
+
                 game.playerProjectilePool.release(p);
+                hitSomething = true;
                 break;
+            }
+        }
+
+        // Check collision with comets (if projectile didn't hit enemy)
+        if (!hitSomething) {
+            for (let k = game.cometManager.comets.length - 1; k >= 0; k--) {
+                const comet = game.cometManager.comets[k];
+                if (p.hit(comet) && comet.active) {
+                    game.cometManager.handleProjectileHit(comet);
+                    game.playerProjectilePool.release(p);
+                    break;
+                }
             }
         }
     }
 
     for (let p of game.enemyProjectilePool.pool) {
         if (!p.active) continue;
+
+        if (p.isOutOfBounds()) {
+            game.enemyProjectilePool.release(p);
+            continue;
+        }
+
         p.show();
         p.move(deltaTime);
+
         if (p.hit(game.player)) {
-            game.gameOver = true;
+            if (!game.player.isInvulnerable()) {
+                game.respawnPlayer();
+            }
+            game.enemyProjectilePool.release(p);
             break;
         }
     }
 
-    if (game.enemies.length === 0) {
-        game.gameOver = true;
-        game.gameWin = true;
-    }
+    // Rocket projectiles - with AOE damage
+    for (let r of game.rocketPool.pool) {
+        if (!r.active) continue;
 
-    game.updateKilledText();
-    game.drawStars(deltaTime);
-}
-
-// Input Handling (Multi-Touch Polling)
-function handleTouches() {
-    game.isLeftPressed = false;
-    game.isRightPressed = false;
-    let isFireButtonPressed = false;
-    for (let i = 0; i < touches.length; i++) {
-        const virtualMouseX = (touches[i].x - offsetX) / scaleFactor;
-        const virtualMouseY = (touches[i].y - offsetY) / scaleFactor;
-        if (game.moveLeftButton.hitTest(virtualMouseX, virtualMouseY)) { game.isLeftPressed = true; }
-        if (game.moveRightButton.hitTest(virtualMouseX, virtualMouseY)) { game.isRightPressed = true; }
-        if (game.fireButton.hitTest(virtualMouseX, virtualMouseY)) { isFireButtonPressed = true; }
-    }
-    if (isFireButtonPressed && !game.fireButtonWasPressed) {
-        game.playerProjectilePool.get(game.player.x, game.player.y, -1);
-    }
-    game.fireButtonWasPressed = isFireButtonPressed;
-}
-
-function mousePressed() {
-    const virtualMouseX = (mouseX - offsetX) / scaleFactor;
-    const virtualMouseY = (mouseY - offsetY) / scaleFactor;
-    if (game.gameOver && game.retryButton.hitTest(virtualMouseX, virtualMouseY)) {
-        game.resetGame();
-    }
-}
-
-function touchStarted() {
-    if (touches.length > 0) {
-        const virtualMouseX = (touches[0].x - offsetX) / scaleFactor;
-        const virtualMouseY = (touches[0].y - offsetY) / scaleFactor;
-        if (game.gameOver && game.retryButton.hitTest(virtualMouseX, virtualMouseY)) {
-            game.resetGame();
+        if (r.isOutOfBounds()) {
+            game.rocketPool.release(r);
+            continue;
         }
-    }
-    return false;
-}
 
-function keyPressed() {
-    if (key === " ") {
-        game.playerProjectilePool.get(game.player.x, game.player.y, -1);
-    }
-}
+        r.show();
+        r.move(deltaTime);
 
-// Game Classes (drawing on gameBuffer)
-class CanvasButton {
-    constructor(x, y, w, h, text) { this.x = x; this.y = y; this.w = w; this.h = h; this.text = text; }
-    draw() {
-        stroke(255);
-        fill(0);
-        rectMode(CENTER);
-        rect(this.x, this.y, this.w, this.h, 10);
-        fill(255);
-        noStroke();
-        textAlign(CENTER, CENTER);
-        textSize(32);
-        text(this.text, this.x, this.y);
-    }
-    hitTest(virtualX, virtualY) {
-        return (virtualX > this.x - this.w / 2 && virtualX < this.x + this.w / 2 &&
-                virtualY > this.y - this.h / 2 && virtualY < this.y + this.h / 2);
-    }
-}
+        // Check for direct hit on ANY enemy
+        for (let j = game.enemies.length - 1; j >= 0; j--) {
+            const enemy = game.enemies[j];
+            // Rocket can hit any enemy (even flying in)
+            if (r.hit(enemy) && enemy.active && enemy.animationState !== 'dying') {
+                // Rocket hit! Destroy ALL enemies on screen
+                console.log('ROCKET HIT! Destroying all enemies!');
 
-class Game {
-    constructor() {
-        this.player; this.enemies = []; 
-        this.playerProjectilePool = new ProjectilePool(10);
-        this.enemyProjectilePool = new ProjectilePool(20);
-        this.gameOver = false; this.gameWin = false; this.score = 0;
-        this.retryButton = new CanvasButton(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 100, 200, 60, "Retry");
-        this.isTouchDevice = 'ontouchstart' in window;
-        this.moveLeftButton = new CanvasButton(150, VIRTUAL_HEIGHT - 80, 100, 80, "<");
-        this.moveRightButton = new CanvasButton(300, VIRTUAL_HEIGHT - 80, 100, 80, ">");
-        this.fireButton = new CanvasButton(VIRTUAL_WIDTH - 150, VIRTUAL_HEIGHT - 80, 120, 80, "FIRE");
-        this.isLeftPressed = false; this.isRightPressed = false; this.fireButtonWasPressed = false;
-        this.spaceImg; this.enemyImg; this.killedEnemies = 0;
-        this.stars = [];
-    }
-    setup() { this.resetGame(); }
-    resetGame() {
-        this.killedEnemies = 0; this.gameOver = false; this.gameWin = false; this.score = 0;
-        this.player = new Player(); this.enemies = []; this.initEnemies();
-        this.playerProjectilePool.pool.forEach(p => p.active = false);
-        this.enemyProjectilePool.pool.forEach(p => p.active = false);
-        this.stars = Array.from({length: 50}, () => ({
-            x: Math.random() * VIRTUAL_WIDTH,
-            y: Math.random() * VIRTUAL_HEIGHT,
-            speed: Math.random() * 50 + 20, // pixels per second
-            size: Math.random() * 3 + 1
-        }));
-    }
-    initEnemies() { for (let i = 0; i < 5; i++) { for (let j = 0; j < 10; j++) { this.enemies.push(new Enemy(j * 60 + 60, i * 40 + 80)); } } }
-    drawStars(dt) {
-        for (let star of this.stars) {
-            stroke(255);
-            strokeWeight(star.size);
-            point(star.x, star.y);
-            star.y -= star.speed * dt;
-            if (star.y < 0) {
-                star.y = VIRTUAL_HEIGHT;
-                star.x = Math.random() * VIRTUAL_WIDTH;
+                // Draw massive explosion effect
+                push();
+                noFill();
+                stroke(255, 150, 0, 200);
+                strokeWeight(4);
+                ellipse(r.x, r.y, 300, 300);
+                fill(255, 200, 0, 100);
+                noStroke();
+                ellipse(r.x, r.y, 250, 250);
+                pop();
+
+                // Destroy ALL enemies
+                game.destroyAllEnemies();
+
+                game.rocketPool.release(r);
+                break;
             }
         }
     }
-    updateKilledText() {
-        textAlign(CENTER);
-        strokeWeight(0.5);
-        fill(255);
-        textSize(12);
-        text("Killed Enemies: " + this.killedEnemies, 80, 30);
-    }
-}
 
-class Player {
-    constructor() { this.x = VIRTUAL_WIDTH / 2; this.y = VIRTUAL_HEIGHT - 70; this.w = 50; this.h = 50; this.speed = 300; }
-    show() { image(game.spaceImg, this.x, this.y, this.w, this.h); }
-    move(dt) {
-        if ((keyIsDown(LEFT_ARROW) || game.isLeftPressed) && this.x > 0) { this.x -= this.speed * dt; }
-        if ((keyIsDown(RIGHT_ARROW) || game.isRightPressed) && this.x < VIRTUAL_WIDTH - this.w) { this.x += this.speed * dt; }
-    }
-}
-
-class Enemy {
-    constructor(x, y) { this.x = x; this.y = y; this.w = 50; this.h = 50; this.speed = 60; this.direction = 1; }
-    show() { image(game.enemyImg, this.x, this.y, this.w, this.h); }
-    move(dt) {
-        this.x += this.speed * this.direction * dt;
-        if (this.x > VIRTUAL_WIDTH - this.w || this.x < 0) { this.direction *= -1; this.y += 10; }
-        if (Math.random() < 0.001) { game.enemyProjectilePool.get(this.x + this.w / 2, this.y + this.h, 1); }
-    }
-}
-
-class Projectile {
-    constructor(x, y, direction) { this.x = x; this.y = y; this.r = 10; this.speed = 300; this.direction = direction; this.active = false; }
-    show() {
-        fill(255);
-        noStroke();
-        ellipse(this.x, this.y, this.r * 2, this.r * 2);
-    }
-    move(dt) { this.y += this.speed * this.direction * dt; }
-    hit(obj) { let d = dist(this.x, this.y, obj.x + obj.w / 2, obj.y + obj.h / 2); return d < this.r + obj.w / 2; }
-    reset(x, y, direction) { this.x = x; this.y = y; this.direction = direction; this.active = true; }
-}
-
-class ProjectilePool {
-    constructor(size) {
-        this.pool = Array(size).fill().map(() => new Projectile(0, 0, 1));
-    }
-    
-    get(x, y, direction) {
-        let proj = this.pool.find(p => !p.active);
-        if (proj) {
-            proj.reset(x, y, direction);
-            return proj;
+    // Cleanup: Remove enemies that have finished death animation
+    for (let i = game.enemies.length - 1; i >= 0; i--) {
+        if (!game.enemies[i].active) {
+            game.enemies.splice(i, 1);
         }
-        // Optionally expand the pool if it's empty
-        proj = new Projectile(x, y, direction);
-        proj.active = true;
-        this.pool.push(proj);
-        return proj;
     }
-    
-    release(proj) {
-        proj.active = false;
+
+    // Check for wave completion (endless mode)
+    if (game.enemies.length === 0 && !game.gameOver && !game.waveSpawnPending) {
+        game.startNextWave();
     }
+
+    game.updateKilledText();
+    game.updateWaveText();
+    game.drawScore();
+    game.drawLives();
+    game.drawWaveBonus(deltaTime);
+
+    // Update and draw power-ups
+    game.updatePowerUps(deltaTime);
+    game.powerUpManager.draw();
+
+    // Draw comets
+    game.cometManager.draw();
+
+    // Weapon heat bar
+    game.weaponHeatBar.draw(game.player.weaponHeat);
+
+    // Dev overlay - zawsze na końcu
+    game.devOverlay.update(deltaTime);
+    game.devOverlay.draw(game);
+}
+
+window.mousePressed = function() {
+    handleMousePressed(game, mouseX, mouseY);
+}
+
+window.touchStarted = function() {
+    return handleTouchStarted(game, touches);
+}
+
+window.keyPressed = function() {
+    handleKeyPressed(game, key);
 }
 
 // Global Event Listeners
 if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', handleResizeEvent);
-    window.visualViewport.addEventListener('scroll', handleResizeEvent);
+    window.visualViewport.addEventListener('resize', () => handleResizeEvent(game, resizeCanvas));
+    window.visualViewport.addEventListener('scroll', () => handleResizeEvent(game, resizeCanvas));
 }
-window.addEventListener('orientationchange', () => { setTimeout(handleResizeEvent, 100); });
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => handleResizeEvent(game, resizeCanvas), 100);
+});
