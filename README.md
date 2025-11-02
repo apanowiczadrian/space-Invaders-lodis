@@ -20,11 +20,12 @@ http-server -c-1
 ### Sterowanie
 
 **Desktop:**
-- `A` / `Strzałka w lewo` - ruch w lewo
-- `D` / `Strzałka w prawo` - ruch w prawo
+- `Strzałka <-  -> ` - ruch w lewo prawo   
 - `Spacja` - strzał
-- `R` - wystrzał rakiety (jeśli dostępna)
-- `F1` - dev overlay (statystyki)
+- `D` - dev overlay (statystyki)
+- `G` - god mode (nieśmiertelność)
+- `+` - zwiększ fale (endless mode)
+- `-` - zmniejsz fale (endless mode)
 
 **Mobile:**
 - Lewa połowa ekranu - ruch w lewo

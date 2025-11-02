@@ -379,6 +379,36 @@ export class Game {
         this.enemyProjectilePool.pool.forEach(p => p.active = false);
     }
 
+    destroyAllEnemies() {
+        let enemyCount = 0;
+        let cometCount = 0;
+
+        // Destroy all enemies
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const enemy = this.enemies[i];
+            if (enemy.active && enemy.animationState !== 'dying') {
+                const killPoints = (1 + Math.floor(this.wave / 2)) * (enemy.type === 'boss' ? 10 : 1);
+                this.score += killPoints;
+                this.killedEnemies++;
+                this.powerUpManager.trySpawnPowerUp(enemy.x + enemy.w / 2, enemy.y);
+                enemy.health = 0;
+                enemy.takeDamage();
+                enemyCount++;
+            }
+        }
+
+        // Destroy all comets
+        for (let i = this.cometManager.comets.length - 1; i >= 0; i--) {
+            const comet = this.cometManager.comets[i];
+            if (comet.active) {
+                this.cometManager.handleProjectileHit(comet);
+                cometCount++;
+            }
+        }
+
+        console.log(`Rocket destroyed ${enemyCount} enemies and ${cometCount} comets!`);
+    }
+
     jumpToWave(waveNumber) {
         if (waveNumber < 1) return;
 
