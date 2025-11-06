@@ -60,6 +60,11 @@
             return;
           }
 
+          if (!email) {
+            errorMessage.textContent = 'Email jest wymagany!';
+            return;
+          }
+
           // Clear error
           errorMessage.textContent = '';
 
@@ -180,8 +185,8 @@
     <!-- HTML Start Menu (Native Mobile Keyboard Support) -->
     <div id="start-menu" class="menu-overlay">
       <div class="menu-container">
-        <h1 class="menu-title">SPACE INVADERS</h1>
-        <p class="menu-subtitle">Wpisz swoje dane, aby rozpocząć</p>
+        <h1 class="menu-title">LODIS - GALAGA</h1>
+        
 
         <!-- Controls info -->
         <div class="controls-info">
@@ -202,7 +207,8 @@
             <p>Lewo/Prawo - ruch | Prawo - strzał</p>
           </div>
         </div>
-
+        
+        <p class="menu-subtitle">Wpisz swoje dane, aby rozpocząć</p>
         <!-- Form -->
         <form id="start-form" class="menu-form">
           <div class="form-row">
@@ -224,7 +230,7 @@
             <label for="email-input">Email:</label>
             <input
               id="email-input"
-              type="email"
+              type="text"
               placeholder="twoj@email.pl"
               maxlength="40"
               autocomplete="off"
@@ -232,7 +238,7 @@
             >
           </div>
 
-          <p class="email-hint">Email służy jako hasło do odebrania nagrody</p>
+          <p class="email-hint">Można podać hasło, użyjesz go do odebrania nagrody</br>Email zostanie użyty wyłącznie do powiadomienia o nagrodzie</p>
 
           <div class="error-message" id="error-message"></div>
 

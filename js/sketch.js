@@ -88,6 +88,9 @@ window.setup = function() {
         // Show canvas
         canvas.elt.style.display = 'block';
 
+        // Preload online leaderboard (non-blocking)
+        game.scoreManager.preloadLeaderboard(10);
+
         // Start the game with player data
         game.startGame(playerData);
     });
@@ -426,8 +429,8 @@ function drawGameOverScreen(deltaTime) {
         game.statsLogged = true;
     }
 
-    // Get top scores for leaderboard
-    const topScores = game.scoreManager.getTopScores(4);
+    // Get top scores for leaderboard (synchronous - uses cache)
+    const topScores = game.scoreManager.getTopScoresSync(4);
 
     // Find player's rank in full leaderboard
     const playerRank = game.scoreManager.findPlayerRank(

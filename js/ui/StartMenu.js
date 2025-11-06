@@ -186,7 +186,12 @@ export class StartMenu {
             return false;
         }
 
-        // Email is optional
+        // Validate email (required, min 1 character, no format validation)
+        if (this.emailInput.trim().length === 0) {
+            this.error = 'Email jest wymagany!';
+            return false;
+        }
+
         this.error = '';
 
         const playerData = {
