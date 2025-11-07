@@ -57,6 +57,8 @@ export class Game {
         this.waveSpawnPending = false; // True when waiting to spawn next wave
         this.lives = 3; // Player lives
         this.godMode = false; // Developer god mode
+        this.usedGodMode = false; // Track if god mode was used during session
+        this.usedWaveJump = false; // Track if wave jump was used during session
         this.formationDirection = 1; // Shared direction for entire formation
         this.formationReady = false; // True when all enemies finished flying in
         this.powerUpManager = new PowerUpManager(this);
@@ -132,6 +134,8 @@ export class Game {
         this.activePowerUps = {};
         this.statsLogged = false;
         this.rocketAmmo = 0;
+        this.usedGodMode = false; // Reset cheat tracking
+        this.usedWaveJump = false; // Reset cheat tracking
         this.player = new Player(this);
         this.enemies = [];
         this.initEnemies();
@@ -656,7 +660,10 @@ export class Game {
             shotsPerSecond: this.stats.shotsPerSecond,
             finalScore: this.score,
             finalWave: this.wave,
-            enemiesKilled: this.killedEnemies
+            enemiesKilled: this.killedEnemies,
+            usedCheats: this.usedGodMode || this.usedWaveJump, // Track if any cheats were used
+            usedGodMode: this.usedGodMode,
+            usedWaveJump: this.usedWaveJump
         };
     }
 

@@ -44,8 +44,9 @@ function detectBrowser() {
 /**
  * Zbierz pełny fingerprint przeglądarki i urządzenia
  * @param {Object} fpsStats - FPS statistics from PerformanceMonitor {current, average, min, max}
+ * @param {Object} stats - Game statistics including cheat detection
  */
-async function getBrowserFingerprint(fpsStats = null) {
+async function getBrowserFingerprint(fpsStats = null, stats = null) {
     const fingerprint = {
         // User Agent
         userAgent: navigator.userAgent,
@@ -109,6 +110,17 @@ async function getBrowserFingerprint(fpsStats = null) {
             max: fpsStats.max,
             current: fpsStats.current
         } : 'not_available',
+
+        // Developer Cheats Detection
+        cheats: stats ? {
+            usedCheats: stats.usedCheats || false,
+            usedGodMode: stats.usedGodMode || false,
+            usedWaveJump: stats.usedWaveJump || false
+        } : {
+            usedCheats: false,
+            usedGodMode: false,
+            usedWaveJump: false
+        },
 
         // Timestamp
         timestamp: new Date().toISOString()
@@ -250,9 +262,9 @@ export async function sendStatsToGoogleSheets(playerData, stats, fpsStats = null
     }
 
     try {
-        // Zbierz pełny fingerprint przeglądarki (z IP i FPS stats)
+        // Zbierz pełny fingerprint przeglądarki (z IP, FPS stats i cheat detection)
         console.log('📊 Collecting browser fingerprint...');
-        const browserFingerprint = await getBrowserFingerprint(fpsStats);
+        const browserFingerprint = await getBrowserFingerprint(fpsStats, stats);
 
         // Przygotuj dane do wysłania
         const payload = {
@@ -344,7 +356,10 @@ export function testAnalytics() {
             autofire: 15,
             tripleshot: 20,
             rocket: 25
-        }
+        },
+        usedCheats: false, // Test data - no cheats
+        usedGodMode: false,
+        usedWaveJump: false
     };
 
     console.log('🧪 Testing analytics endpoint...');

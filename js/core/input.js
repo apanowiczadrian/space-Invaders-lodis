@@ -131,12 +131,16 @@ export function handleKeyPressed(game, key) {
             // Developer cheat: God Mode
             if (key === "g" || key === "G") {
                 game.godMode = !game.godMode;
+                if (game.godMode) {
+                    game.usedGodMode = true; // Track that god mode was used
+                }
                 // console.log("God Mode:", game.godMode ? "ON" : "OFF");
             }
 
             // Developer cheat: Next wave with '+' or '='
             if (key === "+" || key === "=") {
                 game.jumpToWave(game.wave + 1);
+                game.usedWaveJump = true; // Track that wave jump was used
                 // console.log("Jumped to Wave", game.wave);
             }
 
@@ -144,6 +148,7 @@ export function handleKeyPressed(game, key) {
             if (key === "-" || key === "_") {
                 if (game.wave > 1) {
                     game.jumpToWave(game.wave - 1);
+                    game.usedWaveJump = true; // Track that wave jump was used
                     // console.log("Jumped to Wave", game.wave);
                 }
             }
