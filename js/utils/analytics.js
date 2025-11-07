@@ -9,7 +9,7 @@
  */
 
 // 🔧 WKLEJ TUTAJ SWÓJ WEB APP URL Z APPS SCRIPT
-const GOOGLE_SHEETS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz6woC_vz5LuvxwLErWYyC_4GXa5GGsTK_X2TfouvteNs4pPE_in922Ctpu5ClRyDclkw/exec';
+const GOOGLE_SHEETS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbx18SZnL14VGzLQcZddjqMTcK1wE9DKCnn1N4CQXGv_pqFYJHfPPQUXfMpkcVng0fonmQ/exec';
 
 // Ustaw na false aby wyłączyć wysyłanie (np. podczas developmentu)
 const ANALYTICS_ENABLED = true;

@@ -147,7 +147,7 @@ function getTopScores(limit) {
     // Przekształć do obiektów i posortuj po Score (descending), potem Time (ascending)
     const scores = data.map(row => ({
       nick: row[3] || 'Anonymous',     // D: Nick
-      email: row[4] || '',              // E: Email
+      // email: row[4] || '',           // E: Email - UKRYTE dla prywatności
       score: row[5] || 0,               // F: Score
       wave: row[6] || 0,                // G: Wave
       time: Math.floor(row[8]) || 0,   // I: Game Time (s)

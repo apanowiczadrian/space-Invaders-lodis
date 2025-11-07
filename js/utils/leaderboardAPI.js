@@ -6,7 +6,7 @@
  */
 
 // 🔧 WKLEJ TUTAJ SWÓJ WEB APP URL (ten sam co w analytics.js)
-const GOOGLE_SHEETS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz6woC_vz5LuvxwLErWYyC_4GXa5GGsTK_X2TfouvteNs4pPE_in922Ctpu5ClRyDclkw/exec';
+const GOOGLE_SHEETS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbx18SZnL14VGzLQcZddjqMTcK1wE9DKCnn1N4CQXGv_pqFYJHfPPQUXfMpkcVng0fonmQ/exec';
 
 // Cache dla leaderboard (żeby nie odpytywać za często)
 let leaderboardCache = null;
@@ -109,13 +109,20 @@ export function clearLeaderboardCache() {
 export async function testLeaderboardAPI() {
     console.log('🧪 Testing leaderboard API...');
 
-    const scores = await fetchTopScores(10, true); // force refresh
+    try {
+        const scores = await fetchTopScores(10, true); // force refresh
 
-    if (scores.length > 0) {
-        console.log('✅ Leaderboard API works!');
-        console.table(scores);
-    } else {
-        console.log('❌ No scores received. Check endpoint configuration.');
+        console.log('📊 Received scores:', scores);
+
+        if (scores && scores.length > 0) {
+            console.log('✅ Leaderboard API works!');
+            console.table(scores);
+        } else {
+            console.log('❌ No scores received. Check endpoint configuration.');
+            console.log('Scores value:', scores);
+        }
+    } catch (error) {
+        console.error('❌ Test failed with error:', error);
     }
 }
 
