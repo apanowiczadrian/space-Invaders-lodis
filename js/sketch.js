@@ -12,7 +12,8 @@ import {
     getViewportDimensions,
     updateGameDimensions,
     handleResizeEvent,
-    isMobileDevice
+    isMobileDevice,
+    isStandaloneMode
 } from './core/viewport.js';
 import {
     handleTouches,
@@ -480,9 +481,20 @@ window.keyPressed = function() {
 
 // Global Event Listeners
 if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => handleResizeEvent(game, resizeCanvas));
-    window.visualViewport.addEventListener('scroll', () => handleResizeEvent(game, resizeCanvas));
+    // Tylko w trybie PWA/standalone reaguj na zmiany visualViewport
+    // W przeglądarce mobilnej ignoruj zmiany spowodowane chowaniem/pokazywaniem paska adresu
+    window.visualViewport.addEventListener('resize', () => {
+        if (isStandaloneMode()) {
+            handleResizeEvent(game, resizeCanvas);
+        }
+    });
+    window.visualViewport.addEventListener('scroll', () => {
+        if (isStandaloneMode()) {
+            handleResizeEvent(game, resizeCanvas);
+        }
+    });
 }
+// Zawsze reaguj na zmianę orientacji (prawdziwa zmiana układu)
 window.addEventListener('orientationchange', () => {
     setTimeout(() => handleResizeEvent(game, resizeCanvas), 100);
 });

@@ -33,6 +33,12 @@ export function getTargetWidth() {
     return isMobileDevice() ? MOBILE_TARGET_WIDTH : PC_TARGET_WIDTH;
 }
 
+// Detect if running in standalone PWA mode
+export function isStandaloneMode() {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone === true;
+}
+
 // Stały margines dla wersji desktop (piksele z każdej strony)
 const DESKTOP_MARGIN = 20;
 
@@ -40,6 +46,20 @@ const DESKTOP_MARGIN = 20;
 export function getViewportDimensions() {
     // Zawsze zwracaj pełne wymiary viewportu (canvas będzie pełnej wielkości)
     // Margines będzie uwzględniony tylko w obliczeniach skali i offsetów
+
+    const isMobile = isMobileDevice();
+    const isStandalone = isStandaloneMode();
+
+    // Dla przeglądarki mobilnej (nie PWA): użyj stabilnego window.innerHeight
+    // Zapobiega to zmianie rozmiaru canvas gdy pasek adresu się chowa/pokazuje
+    if (isMobile && !isStandalone) {
+        return {
+            width: window.innerWidth,
+            height: window.innerHeight  // Stabilne - nie zmienia się przy scrollu
+        };
+    }
+
+    // Dla PWA/standalone lub desktop: użyj visualViewport (obsługuje notche)
     if (window.visualViewport) {
         return {
             width: window.visualViewport.width,
@@ -47,6 +67,7 @@ export function getViewportDimensions() {
         };
     }
 
+    // Fallback dla starszych przeglądarek
     return {
         width: document.documentElement.clientWidth,
         height: document.documentElement.clientHeight
