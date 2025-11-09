@@ -20,7 +20,10 @@
       "Bash(then echo \"node_modules exists\")",
       "Bash(fi)",
       "Bash(if [ -f \"package-lock.json\" ])",
-      "Bash(then echo \"package-lock.json exists\")"
+      "Bash(then echo \"package-lock.json exists\")",
+      "Bash(node -e:*)",
+      "Bash(git diff:*)",
+      "Bash(node -c:*)"
     ],
     "deny": [],
     "ask": []

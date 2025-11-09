@@ -23,6 +23,19 @@ export const getScaleFactor = () => _scaleFactor;
 export const getOffsetX = () => _offsetX;
 export const getOffsetY = () => _offsetY;
 
+// Clear viewport cache - forces fresh calculation on next update
+// Use this when orientation changes to prevent stale data
+export function clearViewportCache() {
+    _VIRTUAL_WIDTH = undefined;
+    _VIRTUAL_HEIGHT = undefined;
+    _safeZoneX = 0;
+    _safeZoneY = 0;
+    _scaleFactor = 1;
+    _offsetX = 0;
+    _offsetY = 0;
+    console.log('✅ Viewport cache cleared');
+}
+
 // Device detection
 export function isMobileDevice() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
@@ -35,7 +48,8 @@ export function getTargetWidth() {
 
 // Detect if running in standalone PWA mode
 export function isStandaloneMode() {
-    return window.matchMedia('(display-mode: standalone)').matches ||
+    return window.matchMedia('(display-mode: fullscreen)').matches ||
+           window.matchMedia('(display-mode: standalone)').matches ||
            window.navigator.standalone === true;
 }
 
@@ -83,6 +97,16 @@ export function calculateGameArea() {
 
     // MOBILE: fill screen
     if (isMobileDevice()) {
+        // VALIDATION GATE: Detect portrait orientation
+        // Portrait has narrow aspect ratio (width < height, aspect < 1.0)
+        // Game requires landscape (aspect >= 1.0)
+        if (screenAspect < 1.0) {
+            console.warn(`⚠️ Portrait orientation detected in calculateGameArea! Aspect: ${screenAspect.toFixed(2)} (width: ${width}, height: ${height})`);
+            console.warn('⚠️ This will create huge virtual height and off-screen entities!');
+            // Don't throw error - allow calculation but warn loudly
+            // Calling code should prevent this scenario from happening
+        }
+
         if (screenAspect >= safeAspect) {
             // Wider than safe zone - add extra space on sides
             _VIRTUAL_WIDTH = SAFE_ZONE_HEIGHT * screenAspect;
@@ -95,6 +119,11 @@ export function calculateGameArea() {
             _VIRTUAL_HEIGHT = SAFE_ZONE_WIDTH / screenAspect;
             _safeZoneX = 0;
             _safeZoneY = (_VIRTUAL_HEIGHT - SAFE_ZONE_HEIGHT) / 2;
+        }
+
+        // Log calculated values for debugging
+        if (screenAspect < 1.0) {
+            console.warn(`⚠️ Calculated virtual space: ${_VIRTUAL_WIDTH.toFixed(0)}x${_VIRTUAL_HEIGHT.toFixed(0)} (safe zone offset Y: ${_safeZoneY.toFixed(0)})`);
         }
     }
     // DESKTOP: smaller viewport for lower res sprites

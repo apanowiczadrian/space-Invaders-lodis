@@ -74,6 +74,9 @@ export class Game {
         this.textCache = new TextCache(); // Text rendering cache
         this.cachedLabels = null; // Will be initialized in setup()
 
+        // Deferred entity spawning flag
+        this.entitiesPending = false; // True when entities should spawn in next draw() frame
+
         // Game statistics
         this.stats = {
             totalShots: 0,
@@ -122,7 +125,9 @@ export class Game {
         }
     }
 
-    resetGame() {
+    resetGameWithoutEntities() {
+        // Reset game state WITHOUT spawning player/enemies
+        // Used for deferred entity spawning to prevent portrait-mode bug
         this.killedEnemies = 0;
         this.gameOver = false;
         this.gameWin = false;
@@ -134,18 +139,20 @@ export class Game {
         this.activePowerUps = {};
         this.statsLogged = false;
         this.rocketAmmo = 0;
-        this.usedGodMode = false; // Reset cheat tracking
-        this.usedWaveJump = false; // Reset cheat tracking
-        this.player = new Player(this);
+        this.usedGodMode = false;
+        this.usedWaveJump = false;
+
+        // Clear existing entities (don't create new ones yet)
+        this.player = null;
         this.enemies = [];
-        this.initEnemies();
+
         this.playerProjectilePool.pool.forEach(p => p.active = false);
         this.enemyProjectilePool.pool.forEach(p => p.active = false);
         this.rocketPool.pool.forEach(r => r.active = false);
         this.powerUpManager.reset();
         this.cometManager.reset();
 
-        // Clear text cache on game reset (for fresh rendering)
+        // Clear text cache
         if (this.textCache) {
             this.textCache.clearAll();
         }
@@ -171,7 +178,7 @@ export class Game {
             shotsPerSecond: 0
         };
 
-        // Initialize retry button with correct position
+        // Initialize retry button
         this.retryButton = new CanvasButton(
             getVirtualWidth() / 2,
             getVirtualHeight() / 2 + 100,
@@ -180,13 +187,43 @@ export class Game {
             "Retry"
         );
 
-        // Stars spawn only in safe zone
+        // Stars spawn in safe zone
         this.stars = Array.from({length: 50}, () => ({
             x: getSafeZoneX() + Math.random() * SAFE_ZONE_WIDTH,
             y: getSafeZoneY() + Math.random() * SAFE_ZONE_HEIGHT,
             speed: Math.random() * 50 + 20,
             size: Math.random() * 2 + 1
         }));
+    }
+
+    resetGame() {
+        // Call resetGameWithoutEntities first (resets state)
+        this.resetGameWithoutEntities();
+
+        // Then spawn entities immediately (for restart flow)
+        this.player = new Player(this);
+        this.enemies = [];
+        this.initEnemies();
+    }
+
+    spawnEntities() {
+        // Spawn player and enemies (called from draw loop for deferred spawning)
+        // This ensures viewport is correct and canvas is visible
+        console.log('✅ Spawning entities with viewport:', {
+            virtualWidth: getVirtualWidth(),
+            virtualHeight: getVirtualHeight(),
+            safeZoneX: getSafeZoneX(),
+            safeZoneY: getSafeZoneY()
+        });
+
+        this.player = new Player(this);
+        this.enemies = [];
+        this.initEnemies();
+
+        // Clear pending flag
+        this.entitiesPending = false;
+
+        console.log(`✅ Entities spawned: Player Y=${this.player.y.toFixed(0)}, ${this.enemies.length} enemies`);
     }
 
     initEnemies() {
@@ -611,6 +648,12 @@ export class Game {
         // Unified shooting logic - handles normal, triple shot, and rocket modes
         // When auto-fire is active, manual shots from center are still allowed but add heat
 
+        // NULL CHECK: Guard against null player (during deferred spawning)
+        if (!this.player) {
+            console.warn('⚠️ Cannot fire weapon: player not spawned yet');
+            return false;
+        }
+
         const centerX = this.player.x + this.player.w / 2;
         const centerY = this.player.y;
 
@@ -672,9 +715,63 @@ export class Game {
         // Save player data
         this.playerData = playerData;
 
-        // Reset game and start playing
-        this.resetGame();
+        // DEFERRED ENTITY SPAWNING:
+        // Don't spawn entities immediately - wait for first draw() frame
+        // This ensures canvas is visible and viewport is correct
+        this.entitiesPending = true;
+
+        // Reset game state (but don't spawn entities yet)
+        this.resetGameWithoutEntities();
+
+        // Set state to PLAYING - entities will spawn in draw() loop
         this.gameState = GameStates.PLAYING;
+
+        console.log('🎮 Game state set to PLAYING. Entities will spawn in first frame.');
+    }
+
+    validateEntityPositions() {
+        // Check if player is off-screen (likely due to portrait coordinates in landscape)
+        const safeZoneX = getSafeZoneX();
+        const safeZoneY = getSafeZoneY();
+
+        if (!this.player) {
+            console.error('❌ Player not initialized!');
+            return;
+        }
+
+        // Check if player Y is way off-screen (more than 2x safe zone height)
+        // This catches portrait-mode spawning issues
+        if (this.player.y > safeZoneY + SAFE_ZONE_HEIGHT * 2 ||
+            this.player.y < safeZoneY - SAFE_ZONE_HEIGHT) {
+            console.warn('⚠️ Player off-screen detected. Repositioning...', {
+                playerY: this.player.y,
+                safeZoneY: safeZoneY,
+                safeZoneHeight: SAFE_ZONE_HEIGHT
+            });
+            // Reset player to correct position
+            this.player.x = safeZoneX + SAFE_ZONE_WIDTH / 2 - 25;
+            this.player.y = safeZoneY + SAFE_ZONE_HEIGHT - 70;
+        }
+
+        // Check enemies
+        let enemiesOffScreen = false;
+        for (let enemy of this.enemies) {
+            if (enemy.targetY > safeZoneY + SAFE_ZONE_HEIGHT * 2 ||
+                enemy.targetY < safeZoneY - SAFE_ZONE_HEIGHT) {
+                enemiesOffScreen = true;
+                break;
+            }
+        }
+
+        if (enemiesOffScreen) {
+            console.warn('⚠️ Enemies off-screen detected. Resetting wave...', {
+                safeZoneY: safeZoneY,
+                safeZoneHeight: SAFE_ZONE_HEIGHT
+            });
+            // Clear and reinitialize enemies with correct viewport
+            this.enemies = [];
+            this.initEnemies();
+        }
     }
 
     endGame() {

@@ -91,7 +91,7 @@
 
           // Check if mobile device
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
-          const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+          const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
           if (isMobile && !isStandalone) {
             // MOBILE & NOT IN PWA: Show PWA install screen
@@ -154,6 +154,15 @@
         canvas[style*="display: none"] {
             pointer-events: none !important;
             z-index: -1 !important; /* Move completely behind when hidden */
+        }
+
+        /* Game Ready State - controls canvas visibility via class instead of inline styles */
+        canvas {
+            display: none; /* Hidden by default */
+        }
+
+        canvas.game-ready {
+            display: block !important; /* Show when game is ready */
         }
 
         /* Orientation Hint for Portrait Mode (tylko na urządzeniach mobilnych) */
@@ -338,7 +347,8 @@
         const installedDiv = document.getElementById('pwa-installed');
 
         // Check if already running in standalone mode (PWA already installed)
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches ||
+                            window.matchMedia('(display-mode: standalone)').matches ||
                             window.navigator.standalone === true;
 
         if (isStandalone) {
@@ -375,7 +385,8 @@
         }
 
         // Check if PWA is installed
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches ||
+                            window.matchMedia('(display-mode: standalone)').matches ||
                             window.navigator.standalone === true;
 
         if (isStandalone) {
@@ -423,10 +434,10 @@
         // Hide PWA screen
         document.getElementById('pwa-install-screen').style.display = 'none';
 
-        // Show canvas
+        // Show canvas via CSS class (not inline style)
         const canvas = document.querySelector('canvas');
         if (canvas) {
-          canvas.style.display = 'block';
+          canvas.classList.add('game-ready');
         }
 
         // Trigger startGame event for sketch.js

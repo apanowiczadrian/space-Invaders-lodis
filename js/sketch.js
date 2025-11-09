@@ -13,7 +13,8 @@ import {
     updateGameDimensions,
     handleResizeEvent,
     isMobileDevice,
-    isStandaloneMode
+    isStandaloneMode,
+    clearViewportCache
 } from './core/viewport.js';
 import {
     handleTouches,
@@ -27,6 +28,72 @@ import { sendStatsToGoogleSheets } from './utils/analytics.js';
 
 let game;
 let lastTime = 0;
+let orientationTimeoutId = null; // Track pending orientation resize
+let pendingPlayerData = null; // Store player data when waiting for landscape orientation
+
+// Helper function to check if device is in landscape orientation
+// Uses matchMedia to sync with CSS @media (orientation: portrait/landscape)
+function isLandscape() {
+    return window.matchMedia('(orientation: landscape)').matches;
+}
+
+// Multi-signal landscape detection - all sources must agree
+// Uses 3 independent signals to confirm orientation:
+// 1. CSS matchMedia (browser layout engine)
+// 2. Dimension comparison (physical viewport size)
+// 3. Screen Orientation API (native device orientation)
+function isLandscapeConfirmed() {
+    // Signal 1: CSS media query
+    const matchMedia = window.matchMedia('(orientation: landscape)').matches;
+
+    // Signal 2: Direct dimension comparison
+    const { width, height } = getViewportDimensions();
+    const dimensions = width > height;
+
+    // Signal 3: Screen Orientation API (if available)
+    let orientation = true; // Assume landscape if API not available
+    if ('orientation' in screen && screen.orientation) {
+        orientation = screen.orientation.type.includes('landscape');
+    }
+
+    // ALL THREE must agree for confirmed landscape
+    const confirmed = matchMedia && dimensions && orientation;
+
+    // Debug logging only when signals disagree
+    if (!confirmed && isMobileDevice()) {
+        console.log(`🔍 Landscape check: matchMedia=${matchMedia}, dimensions=${dimensions} (${width}x${height}), orientation=${orientation}`);
+    }
+
+    return confirmed;
+}
+
+// Blocking landscape wait - polls until orientation confirmed
+// Uses requestAnimationFrame for smooth polling (doesn't block main thread)
+// Max timeout prevents infinite waiting
+function waitForLandscape(callback, timeoutMs = 5000) {
+    const startTime = Date.now();
+    let frameCount = 0;
+
+    function check() {
+        frameCount++;
+        const elapsed = Date.now() - startTime;
+
+        if (isLandscapeConfirmed()) {
+            console.log(`✅ Landscape confirmed after ${elapsed}ms (${frameCount} frames)`);
+            callback();
+        } else if (elapsed < timeoutMs) {
+            // Keep polling
+            requestAnimationFrame(check);
+        } else {
+            console.warn(`⚠️ Landscape wait timeout after ${timeoutMs}ms. User might still be in portrait!`);
+            console.warn('⚠️ Proceeding anyway - game may have visual issues.');
+            // Call callback anyway - let validation gate catch portrait
+            callback();
+        }
+    }
+
+    check();
+}
 
 // p5.js Core Functions
 window.preload = function() {
@@ -73,8 +140,23 @@ window.setup = function() {
     updateGameDimensions(game);
     game.setup();
 
-    // Hide canvas initially, show HTML menu
-    canvas.elt.style.display = 'none';
+    // Canvas is hidden by default via CSS (no inline style needed)
+    // See index.html: canvas { display: none; }
+
+    // Try to lock orientation to landscape in PWA/standalone mode
+    if (isStandaloneMode() && 'orientation' in screen && screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').then(() => {
+            console.log('✅ Orientation locked to landscape (PWA mode)');
+        }).catch(err => {
+            console.warn('⚠️ Orientation lock failed:', err.message);
+            console.warn('   This is normal if not in fullscreen or if browser doesn\'t support it');
+        });
+    } else {
+        if (isMobileDevice()) {
+            console.log('📱 Orientation lock not available (browser mode or unsupported)');
+            console.log('   Using fallback: CSS media query + JavaScript detection');
+        }
+    }
 
     // Listen for start game event from HTML menu
     window.addEventListener('startGame', function(e) {
@@ -86,11 +168,12 @@ window.setup = function() {
             menuOverlay.style.display = 'none';
         }
 
-        // Show canvas
-        canvas.elt.style.display = 'block';
+        // Show canvas via CSS class (not inline style)
+        canvas.elt.classList.add('game-ready');
 
         // Runtime PWA detection - warn if not in standalone mode
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches ||
+                            window.matchMedia('(display-mode: standalone)').matches ||
                             window.navigator.standalone === true;
         if (!isStandalone) {
             console.warn('⚠️ Ostrzeżenie: Gra nie działa w trybie PWA. Dla najlepszego doświadczenia uruchom z ikony na ekranie głównym.');
@@ -103,8 +186,55 @@ window.setup = function() {
         // Preload online leaderboard (non-blocking)
         game.scoreManager.preloadLeaderboard(10);
 
+        // CRITICAL FIX: Multi-signal orientation check before starting game
+        // If in portrait, use blocking poll to wait for landscape confirmation
+        if (!isLandscapeConfirmed() && isMobileDevice()) {
+            // Save player data for when landscape is confirmed
+            pendingPlayerData = playerData;
+            console.log('⚠️ Portrait mode detected. Waiting for landscape rotation...');
+            // Canvas is shown so #orientation-hint becomes visible
+
+            // Use blocking poll instead of event listener (eliminates race condition)
+            waitForLandscape(() => {
+                console.log('✅ Landscape confirmed. Starting game...');
+
+                // Cancel any pending orientation timeout
+                if (orientationTimeoutId !== null) {
+                    clearTimeout(orientationTimeoutId);
+                    orientationTimeoutId = null;
+                }
+
+                // Clear viewport cache to force fresh calculation
+                clearViewportCache();
+
+                // Force viewport recalculation with confirmed landscape dimensions
+                const dims = updateGameDimensions(game);
+                resizeCanvas(dims.width, dims.height);
+
+                // Start the game with player data
+                game.startGame(pendingPlayerData);
+                pendingPlayerData = null; // Clear pending data
+            });
+            return;
+        }
+
+        // Landscape confirmed - start game immediately
+        // Cancel any pending orientation resize
+        if (orientationTimeoutId !== null) {
+            clearTimeout(orientationTimeoutId);
+            orientationTimeoutId = null;
+        }
+
+        // Clear viewport cache to ensure fresh calculation
+        clearViewportCache();
+
+        // Force viewport recalculation before creating entities
+        const dims = updateGameDimensions(game);
+        resizeCanvas(dims.width, dims.height);
+
         // Start the game with player data
         game.startGame(playerData);
+        pendingPlayerData = null; // Clear pending data after successful start
     });
 }
 
@@ -190,6 +320,15 @@ function drawPlayingScreen(deltaTime) {
     // Update performance monitor
     game.performanceMonitor.update(deltaTime);
 
+    // DEFERRED ENTITY SPAWNING: Check if entities need to be spawned
+    // This happens on first frame after startGame() when portrait->landscape transition
+    if (game.entitiesPending) {
+        // Spawn entities now that we're in draw loop
+        // Viewport is guaranteed to be correct
+        game.spawnEntities();
+        return; // Skip this frame, entities will render next frame
+    }
+
     // Draw safe zone border
     drawSafeZone();
 
@@ -232,8 +371,16 @@ function drawPlayingScreen(deltaTime) {
 
     // PERFORMANCE: Player rendering and logic
     game.performanceMonitor.startMeasure('player');
-    game.player.show();
-    game.player.move(deltaTime);
+
+    // NULL CHECK: Player might be null during deferred spawning (entitiesPending=true)
+    if (game.player) {
+        game.player.show();
+        game.player.move(deltaTime);
+    } else {
+        // This should only happen in first frame when entities are pending
+        console.warn('⚠️ Player not initialized yet (frame skip during entity spawning)');
+    }
+
     game.performanceMonitor.endMeasure();
 
     // PERFORMANCE: Enemies logic and batch rendering
@@ -496,5 +643,36 @@ if (window.visualViewport) {
 }
 // Zawsze reaguj na zmianę orientacji (prawdziwa zmiana układu)
 window.addEventListener('orientationchange', () => {
-    setTimeout(() => handleResizeEvent(game, resizeCanvas), 100);
+    // Cancel any pending orientation timeout
+    if (orientationTimeoutId !== null) {
+        clearTimeout(orientationTimeoutId);
+        orientationTimeoutId = null;
+    }
+
+    console.log('📱 Orientation change detected');
+
+    // Clear viewport cache immediately to prevent stale data
+    clearViewportCache();
+
+    // Use blocking poll to wait for confirmed landscape (eliminates timeout guessing)
+    waitForLandscape(() => {
+        handleResizeEvent(game, resizeCanvas);
+
+        // CRITICAL FIX: Start pending game after rotation to landscape
+        // This handles the scenario where user started game in portrait
+        if (pendingPlayerData !== null) {
+            console.log('✅ Starting pending game after landscape confirmation...');
+
+            // Clear cache again before final calculation
+            clearViewportCache();
+
+            // Force SYNCHRONOUS viewport update with confirmed orientation
+            const dims = updateGameDimensions(game);
+            resizeCanvas(dims.width, dims.height);
+
+            // Now safe to start the game (viewport is up-to-date)
+            game.startGame(pendingPlayerData);
+            pendingPlayerData = null; // Clear pending data
+        }
+    });
 });
