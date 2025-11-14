@@ -4,3 +4,6 @@ GEMINI.md
 
 # Old/unused images
 newImg/
+
+# Node modules (debugging server)
+debugging/node_modules/

@@ -1,0 +1,3 @@
+Problem jest z zapisem informacji o userze i jego decyzji w przeglądarce kiedy nastapi obrócenie ekrani (pez pwa i z)
+- kiedy user zdecyduje grać bez PWA, gra pokaze mu zeby obrocic ekran. Kiedy to zrobi gra wraca do pierwszej strony gdzie prosi o podnie danych. (te dane powinny być dostępne przez jedną sesje(jedno wejście na adres), kiedy user potwierdził że chce grać w wersje bez PWA. Przy najstępnej grze ma być automatycznie wczytana ta informacja z przeglądarki, bez pokazywania informacji o instalacji PWA)
+- dane o user powinny być zapisane na stale w pamieci przegladarki, kiedy user wchodzi w gre i sa one zapisane, gra powinna zacząc sie samoczynnie bez proszenia o nick i resztę

@@ -23,7 +23,11 @@
       "Bash(then echo \"package-lock.json exists\")",
       "Bash(node -e:*)",
       "Bash(git diff:*)",
-      "Bash(node -c:*)"
+      "Bash(node -c:*)",
+      "Bash(then echo \"Dependencies installed\")",
+      "Bash(else echo \"Dependencies NOT installed - run npm install\")",
+      "Bash(powershell -Command:*)",
+      "Bash(del \"c:\\Users\\Adrian\\Documents\\Develop\\gaming_house\\gra\\js\\ui\\StartMenu.js\")"
     ],
     "deny": [],
     "ask": []

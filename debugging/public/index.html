@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LODIS - GALAGA Debug Console</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0e27;
+            color: #00ff41;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #00ff41;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: #64b5f6;
+        }
+
+        .stats span {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #1565c0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.danger {
+            background: #d32f2f;
+        }
+
+        button.danger:hover {
+            background: #c62828;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 15px;
+            font-size: 12px;
+        }
+
+        .filter-btn.active {
+            background: #00ff41;
+            color: #0a0e27;
+        }
+
+        .console {
+            background: #000;
+            border: 2px solid #1976d2;
+            border-radius: 10px;
+            padding: 15px;
+            height: calc(100vh - 280px);
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(25, 118, 210, 0.3);
+        }
+
+        .log-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid #1a1a1a;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .timestamp {
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .level {
+            display: inline-block;
+            width: 50px;
+            text-align: center;
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin-right: 10px;
+            font-weight: bold;
+            font-size: 11px;
+        }
+
+        .level-info {
+            background: #1976d2;
+            color: white;
+        }
+
+        .level-warn {
+            background: #ffa000;
+            color: #000;
+        }
+
+        .level-error {
+            background: #d32f2f;
+            color: white;
+        }
+
+        .level-debug {
+            background: #00bcd4;
+            color: white;
+        }
+
+        .file {
+            color: #ab47bc;
+            margin-right: 10px;
+            font-style: italic;
+        }
+
+        .message {
+            color: #00ff41;
+        }
+
+        .message-error {
+            color: #ff5252;
+        }
+
+        .message-warn {
+            color: #ffeb3b;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .console::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .console::-webkit-scrollbar-track {
+            background: #0a0e27;
+            border-radius: 5px;
+        }
+
+        .console::-webkit-scrollbar-thumb {
+            background: #1976d2;
+            border-radius: 5px;
+        }
+
+        .console::-webkit-scrollbar-thumb:hover {
+            background: #1565c0;
+        }
+
+        .status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4caf50;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎮 LODIS - GALAGA Debug Console</h1>
+        <div class="stats">
+            <span><span class="status"></span> Connected</span>
+            <span id="log-count">Logs: 0</span>
+            <span id="last-update">Last update: Never</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="toggleAutoRefresh()">
+            <span id="refresh-text">⏸️ Pause</span>
+        </button>
+        <button onclick="refreshLogs()">🔄 Refresh Now</button>
+        <button class="danger" onclick="clearLogs()">🗑️ Clear Logs</button>
+    </div>
+
+    <div class="filters">
+        <button class="filter-btn active" onclick="toggleFilter('info')">ℹ️ INFO</button>
+        <button class="filter-btn active" onclick="toggleFilter('warn')">⚠️ WARN</button>
+        <button class="filter-btn active" onclick="toggleFilter('error')">❌ ERROR</button>
+        <button class="filter-btn active" onclick="toggleFilter('debug')">🔍 DEBUG</button>
+    </div>
+
+    <div class="console" id="console">
+        <div class="empty-state">Waiting for logs...</div>
+    </div>
+
+    <script>
+        let autoRefresh = true;
+        let refreshInterval = null;
+        let activeFilters = new Set(['info', 'warn', 'error', 'debug']);
+
+        // Format timestamp
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toTimeString().substring(0, 8);
+        }
+
+        // Render logs
+        function renderLogs(logs) {
+            const consoleEl = document.getElementById('console');
+
+            if (logs.length === 0) {
+                consoleEl.innerHTML = '<div class="empty-state">No logs available</div>';
+                return;
+            }
+
+            const filteredLogs = logs.filter(log => activeFilters.has(log.level));
+
+            if (filteredLogs.length === 0) {
+                consoleEl.innerHTML = '<div class="empty-state">No logs match current filters</div>';
+                return;
+            }
+
+            consoleEl.innerHTML = filteredLogs.map(log => {
+                const messageClass = log.level === 'error' ? 'message-error' :
+                                   log.level === 'warn' ? 'message-warn' : 'message';
+
+                return `
+                    <div class="log-entry">
+                        <span class="timestamp">${formatTime(log.timestamp)}</span>
+                        <span class="level level-${log.level}">${log.level.toUpperCase()}</span>
+                        <span class="file">${log.file}</span>
+                        <span class="${messageClass}">${escapeHtml(log.message)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Auto-scroll to bottom
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Fetch logs from server
+        async function refreshLogs() {
+            try {
+                const response = await fetch('/logs?limit=100');
+                const data = await response.json();
+
+                renderLogs(data.logs);
+
+                document.getElementById('log-count').textContent = `Logs: ${data.total}`;
+                document.getElementById('last-update').textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                console.error('Failed to fetch logs:', error);
+            }
+        }
+
+        // Toggle auto-refresh
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const btn = document.getElementById('refresh-text');
+
+            if (autoRefresh) {
+                btn.textContent = '⏸️ Pause';
+                startAutoRefresh();
+            } else {
+                btn.textContent = '▶️ Resume';
+                stopAutoRefresh();
+            }
+        }
+
+        // Start auto-refresh
+        function startAutoRefresh() {
+            if (refreshInterval) return;
+            refreshInterval = setInterval(refreshLogs, 1000);
+        }
+
+        // Stop auto-refresh
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        // Clear logs
+        async function clearLogs() {
+            if (!confirm('Are you sure you want to clear all logs?')) return;
+
+            try {
+                await fetch('/logs', { method: 'DELETE' });
+                refreshLogs();
+            } catch (error) {
+                console.error('Failed to clear logs:', error);
+            }
+        }
+
+        // Toggle filter
+        function toggleFilter(level) {
+            if (activeFilters.has(level)) {
+                activeFilters.delete(level);
+            } else {
+                activeFilters.add(level);
+            }
+
+            // Update button styles
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                const btnLevel = btn.textContent.toLowerCase().includes('info') ? 'info' :
+                                btn.textContent.toLowerCase().includes('warn') ? 'warn' :
+                                btn.textContent.toLowerCase().includes('error') ? 'error' : 'debug';
+
+                if (activeFilters.has(btnLevel)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            refreshLogs();
+        }
+
+        // Initialize
+        refreshLogs();
+        startAutoRefresh();
+    </script>
+</body>
+</html>

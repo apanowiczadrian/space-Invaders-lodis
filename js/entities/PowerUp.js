@@ -97,7 +97,6 @@ export class PowerUp {
 
     // Override in child classes for specific effects
     activate(game) {
-        // console.log(`PowerUp ${this.type} activated!`); // Removed for performance
         this.collected = true;
         this.active = false;
 
@@ -134,9 +133,6 @@ export class LifePowerUp extends PowerUp {
         // Max 3 lives
         if (game.lives < 3) {
             game.lives++;
-            // console.log('Extra life collected!'); // Removed for performance
-        } else {
-            // console.log('Already at max lives (3)'); // Removed for performance
         }
         super.activate(game);
     }
@@ -164,7 +160,6 @@ export class ShieldPowerUp extends PowerUp {
 
     activate(game) {
         game.player.activateShield();
-        // console.log('Shield activated!'); // Removed for performance
         super.activate(game);
     }
 }
@@ -192,7 +187,6 @@ export class AutoFirePowerUp extends PowerUp {
 
     activate(game) {
         game.activatePowerUp('autofire', this.duration);
-        // console.log('Auto-fire activated for 4 seconds!'); // Removed for performance
         super.activate(game);
     }
 }
@@ -220,7 +214,6 @@ export class TripleShotPowerUp extends PowerUp {
 
     activate(game) {
         game.activatePowerUp('tripleshot', this.duration);
-        // console.log('Triple shot activated for 5 seconds!'); // Removed for performance
         super.activate(game);
     }
 }
@@ -248,7 +241,6 @@ export class RocketPowerUp extends PowerUp {
     activate(game) {
         // Give 1 rocket as ammo - instant all-enemy destruction
         game.rocketAmmo += 1;
-        // console.log('Rocket ammo +1! Total: ' + game.rocketAmmo); // Removed for performance
         super.activate(game);
     }
 }

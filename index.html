@@ -165,40 +165,67 @@
             display: block !important; /* Show when game is ready */
         }
 
-        /* Orientation Hint for Portrait Mode (tylko na urządzeniach mobilnych) */
-        #orientation-hint {
+        /* Portrait Warning Overlay - shown via JavaScript when portrait detected */
+        #portrait-warning {
             display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: #000;
-            color: #fff;
+            background: linear-gradient(135deg, #1a0a2e 0%, #0f0519 100%);
+            z-index: 10000;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            font-family: sans-serif;
-            font-size: 1.5em;
-            text-align: center;
-            z-index: 1000;
+            font-family: 'Orbitron', sans-serif;
         }
 
-        /* Pokazuj komunikat tylko na urządzeniach mobilnych w trybie portrait */
-        @media (orientation: portrait) and (max-width: 768px),
-               (orientation: portrait) and (pointer: coarse) {
-            #orientation-hint {
-                display: flex;
+        #portrait-warning.active {
+            display: flex;
+        }
+
+        .rotation-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+            animation: rotatePhone 2s ease-in-out infinite;
+        }
+
+        @keyframes rotatePhone {
+            0%, 100% {
+                transform: rotate(0deg);
             }
-            canvas {
-                display: none;
+            50% {
+                transform: rotate(90deg);
             }
+        }
+
+        .portrait-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #00ffff;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .portrait-text {
+            font-size: 18px;
+            color: #ffffff;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.6;
+            opacity: 0.9;
         }
 </style>
 
   </head>
   <body>
-    <div id="orientation-hint">
-        Please rotate your device to landscape mode to play.
+    <!-- Portrait Warning Overlay (JavaScript-controlled) -->
+    <div id="portrait-warning">
+      <div class="rotation-icon">📱</div>
+      <h2 class="portrait-title">Obróć Urządzenie</h2>
+      <p class="portrait-text">Ta gra wymaga orientacji poziomej (landscape)</p>
     </div>
 
     <!-- HTML Start Menu (Native Mobile Keyboard Support) -->
@@ -344,7 +371,6 @@
       window.initPWAPrompt = function() {
         const androidDiv = document.getElementById('pwa-android');
         const iosDiv = document.getElementById('pwa-ios');
-        const installedDiv = document.getElementById('pwa-installed');
 
         // Check if already running in standalone mode (PWA already installed)
         const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches ||
@@ -352,9 +378,8 @@
                             window.navigator.standalone === true;
 
         if (isStandalone) {
-          // Already installed - show confirmation
-          installedDiv.style.display = 'block';
-          document.getElementById('installed-continue-button').addEventListener('click', startGameFromPWA);
+          // Already installed - start game directly (no intermediate screen needed)
+          startGameFromPWA();
           return;
         }
 

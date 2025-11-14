@@ -1,5 +1,8 @@
 p5.disableFriendlyErrors = true;
 
+// Initialize debug logger (must be first to capture all console output)
+import debugLogger from './debug/DebugLogger.js';
+
 import { SAFE_ZONE_WIDTH, SAFE_ZONE_HEIGHT } from './core/constants.js';
 import {
     getVirtualWidth,
@@ -28,71 +31,127 @@ import { sendStatsToGoogleSheets } from './utils/analytics.js';
 
 let game;
 let lastTime = 0;
-let orientationTimeoutId = null; // Track pending orientation resize
-let pendingPlayerData = null; // Store player data when waiting for landscape orientation
+let isWaitingForLandscape = false; // Flag to track if waiting for landscape rotation
+let orientationCheckTimer = null; // Debounce timer for orientation checks
+let isCheckingOrientation = false; // Guard flag to prevent concurrent checks
+let lastOrientationCheck = 0; // Timestamp of last runtime orientation check
 
-// Helper function to check if device is in landscape orientation
-// Uses matchMedia to sync with CSS @media (orientation: portrait/landscape)
-function isLandscape() {
-    return window.matchMedia('(orientation: landscape)').matches;
-}
-
-// Multi-signal landscape detection - all sources must agree
-// Uses 3 independent signals to confirm orientation:
-// 1. CSS matchMedia (browser layout engine)
-// 2. Dimension comparison (physical viewport size)
-// 3. Screen Orientation API (native device orientation)
-function isLandscapeConfirmed() {
-    // Signal 1: CSS media query
-    const matchMedia = window.matchMedia('(orientation: landscape)').matches;
-
-    // Signal 2: Direct dimension comparison
+// Helper function to check if device is in portrait orientation
+function isPortrait() {
     const { width, height } = getViewportDimensions();
-    const dimensions = width > height;
-
-    // Signal 3: Screen Orientation API (if available)
-    let orientation = true; // Assume landscape if API not available
-    if ('orientation' in screen && screen.orientation) {
-        orientation = screen.orientation.type.includes('landscape');
-    }
-
-    // ALL THREE must agree for confirmed landscape
-    const confirmed = matchMedia && dimensions && orientation;
-
-    // Debug logging only when signals disagree
-    if (!confirmed && isMobileDevice()) {
-        console.log(`🔍 Landscape check: matchMedia=${matchMedia}, dimensions=${dimensions} (${width}x${height}), orientation=${orientation}`);
-    }
-
-    return confirmed;
+    return height > width;
 }
 
-// Blocking landscape wait - polls until orientation confirmed
-// Uses requestAnimationFrame for smooth polling (doesn't block main thread)
-// Max timeout prevents infinite waiting
-function waitForLandscape(callback, timeoutMs = 5000) {
-    const startTime = Date.now();
-    let frameCount = 0;
+// Helper function to show portrait warning overlay
+function showPortraitWarning() {
+    const portraitWarning = document.getElementById('portrait-warning');
+    if (portraitWarning && !portraitWarning.classList.contains('active')) {
+        portraitWarning.classList.add('active');
+        console.log('📱 Portrait warning shown');
+    }
+}
 
-    function check() {
-        frameCount++;
-        const elapsed = Date.now() - startTime;
+// Helper function to hide portrait warning overlay
+function hidePortraitWarning() {
+    const portraitWarning = document.getElementById('portrait-warning');
+    if (portraitWarning && portraitWarning.classList.contains('active')) {
+        portraitWarning.classList.remove('active');
+        console.log('📱 Portrait warning hidden');
+    }
+}
 
-        if (isLandscapeConfirmed()) {
-            console.log(`✅ Landscape confirmed after ${elapsed}ms (${frameCount} frames)`);
-            callback();
-        } else if (elapsed < timeoutMs) {
-            // Keep polling
-            requestAnimationFrame(check);
-        } else {
-            console.warn(`⚠️ Landscape wait timeout after ${timeoutMs}ms. User might still be in portrait!`);
-            console.warn('⚠️ Proceeding anyway - game may have visual issues.');
-            // Call callback anyway - let validation gate catch portrait
-            callback();
-        }
+// Unified debounced orientation check function
+function checkOrientation() {
+    // Clear any pending check
+    if (orientationCheckTimer) {
+        clearTimeout(orientationCheckTimer);
     }
 
-    check();
+    // Debounce: wait 300ms for orientation to stabilize (iOS viewport lag)
+    orientationCheckTimer = setTimeout(() => {
+        // Guard: prevent concurrent execution
+        if (isCheckingOrientation) {
+            console.log('⚠️ Orientation check already in progress, skipping...');
+            return;
+        }
+
+        isCheckingOrientation = true;
+
+        try {
+            const isCurrentlyPortrait = isPortrait();
+            const isMobile = isMobileDevice();
+
+            console.log(`🔄 Orientation check: ${isCurrentlyPortrait ? 'PORTRAIT' : 'LANDSCAPE'}, Mobile: ${isMobile}, Game State: ${game?.gameState || 'N/A'}`);
+
+            // Skip orientation enforcement on desktop
+            if (!isMobile) {
+                console.log('💻 Desktop device, skipping orientation enforcement');
+                hidePortraitWarning();
+                isCheckingOrientation = false;
+                return;
+            }
+
+            // SCENARIO 1: Pre-game (waiting for landscape to start)
+            if (isWaitingForLandscape) {
+                if (isCurrentlyPortrait) {
+                    console.log('⚠️ Still in portrait, waiting for landscape...');
+                    showPortraitWarning();
+                } else {
+                    console.log('✅ Landscape detected, reloading page...');
+                    hidePortraitWarning();
+                    // Reload to start game properly in landscape
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 100);
+                }
+                isCheckingOrientation = false;
+                return;
+            }
+
+            // SCENARIO 2: During gameplay (runtime portrait detection)
+            if (game && game.gameState === GameStates.PLAYING) {
+                if (isCurrentlyPortrait) {
+                    console.log('⏸️ Portrait detected during gameplay, pausing game...');
+                    game.pauseGame();
+                    showPortraitWarning();
+                } else {
+                    console.log('▶️ Landscape detected, game continues...');
+                    hidePortraitWarning();
+                }
+                isCheckingOrientation = false;
+                return;
+            }
+
+            // SCENARIO 3: Game paused due to portrait, now back to landscape
+            if (game && game.gameState === GameStates.PAUSED) {
+                if (!isCurrentlyPortrait) {
+                    console.log('▶️ Landscape restored, resuming game...');
+                    hidePortraitWarning();
+                    game.resumeGame();
+                } else {
+                    console.log('⏸️ Still in portrait, keeping game paused...');
+                    showPortraitWarning();
+                }
+                isCheckingOrientation = false;
+                return;
+            }
+
+            // SCENARIO 4: Other states (MENU, GAME_OVER) - just hide warning
+            if (game && (game.gameState === GameStates.MENU || game.gameState === GameStates.GAME_OVER)) {
+                if (!isCurrentlyPortrait) {
+                    hidePortraitWarning();
+                }
+                // Don't show warning during menu/game over - not critical
+                isCheckingOrientation = false;
+                return;
+            }
+
+        } catch (error) {
+            console.error('❌ Error in checkOrientation:', error);
+        } finally {
+            isCheckingOrientation = false;
+        }
+    }, 300); // 300ms debounce for iOS viewport stabilization
 }
 
 // p5.js Core Functions
@@ -140,6 +199,51 @@ window.setup = function() {
     updateGameDimensions(game);
     game.setup();
 
+    // Global error handlers for production debugging
+    // Priority 1: Catch uncaught exceptions and unhandled promise rejections
+    // Priority 6: Integrate with DebugLogger for remote/localStorage logging
+    window.onerror = function(message, source, lineno, colno, error) {
+        console.error('❌ UNCAUGHT ERROR:', {
+            message,
+            source,
+            lineno,
+            colno,
+            error: error ? error.stack : 'No error object'
+        });
+
+        // Log to DebugLogger (remote + localStorage fallback)
+        debugLogger.logGlobalError('ERROR', error || new Error(message), {
+            source,
+            lineno,
+            colno
+        });
+
+        // Show user-friendly error screen if game is initialized
+        if (game) {
+            game.handleCriticalError(error || new Error(message));
+        }
+
+        return true; // Prevent default browser error handling
+    };
+
+    window.addEventListener('unhandledrejection', function(event) {
+        console.error('❌ UNHANDLED PROMISE REJECTION:', {
+            reason: event.reason,
+            promise: event.promise
+        });
+
+        // Log to DebugLogger (remote + localStorage fallback)
+        debugLogger.logGlobalError('PROMISE_REJECTION', event.reason);
+
+        // Show user-friendly error screen if game is initialized
+        if (game) {
+            game.handleCriticalError(event.reason);
+        }
+
+        // Prevent error from being thrown to console
+        event.preventDefault();
+    });
+
     // Canvas is hidden by default via CSS (no inline style needed)
     // See index.html: canvas { display: none; }
 
@@ -168,9 +272,6 @@ window.setup = function() {
             menuOverlay.style.display = 'none';
         }
 
-        // Show canvas via CSS class (not inline style)
-        canvas.elt.classList.add('game-ready');
-
         // Runtime PWA detection - warn if not in standalone mode
         const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches ||
                             window.matchMedia('(display-mode: standalone)').matches ||
@@ -186,44 +287,19 @@ window.setup = function() {
         // Preload online leaderboard (non-blocking)
         game.scoreManager.preloadLeaderboard(10);
 
-        // CRITICAL FIX: Multi-signal orientation check before starting game
-        // If in portrait, use blocking poll to wait for landscape confirmation
-        if (!isLandscapeConfirmed() && isMobileDevice()) {
-            // Save player data for when landscape is confirmed
-            pendingPlayerData = playerData;
-            console.log('⚠️ Portrait mode detected. Waiting for landscape rotation...');
-            // Canvas is shown so #orientation-hint becomes visible
-
-            // Use blocking poll instead of event listener (eliminates race condition)
-            waitForLandscape(() => {
-                console.log('✅ Landscape confirmed. Starting game...');
-
-                // Cancel any pending orientation timeout
-                if (orientationTimeoutId !== null) {
-                    clearTimeout(orientationTimeoutId);
-                    orientationTimeoutId = null;
-                }
-
-                // Clear viewport cache to force fresh calculation
-                clearViewportCache();
-
-                // Force viewport recalculation with confirmed landscape dimensions
-                const dims = updateGameDimensions(game);
-                resizeCanvas(dims.width, dims.height);
-
-                // Start the game with player data
-                game.startGame(pendingPlayerData);
-                pendingPlayerData = null; // Clear pending data
-            });
+        // Check orientation with debounced function (prevents double warnings)
+        if (isPortrait() && isMobileDevice()) {
+            console.log('⚠️ Portrait mode detected at game start');
+            isWaitingForLandscape = true;
+            checkOrientation(); // Will show warning and wait for landscape
             return;
         }
 
-        // Landscape confirmed - start game immediately
-        // Cancel any pending orientation resize
-        if (orientationTimeoutId !== null) {
-            clearTimeout(orientationTimeoutId);
-            orientationTimeoutId = null;
-        }
+        // Landscape mode confirmed - proceed with game initialization
+        console.log('✅ Landscape mode confirmed, starting game...');
+
+        // Show canvas via CSS class (not inline style)
+        canvas.elt.classList.add('game-ready');
 
         // Clear viewport cache to ensure fresh calculation
         clearViewportCache();
@@ -234,7 +310,6 @@ window.setup = function() {
 
         // Start the game with player data
         game.startGame(playerData);
-        pendingPlayerData = null; // Clear pending data after successful start
     });
 }
 
@@ -285,6 +360,21 @@ function drawSafeZone() {
 
 // Game Logic
 function drawGame(deltaTime) {
+    // Check for critical error first - show error screen regardless of game state
+    if (game.hasCriticalError) {
+        drawCriticalErrorScreen();
+        return;
+    }
+
+    // Runtime orientation monitoring (check every 2 seconds during PLAYING or PAUSED states)
+    const currentTime = millis();
+    if ((game.gameState === GameStates.PLAYING || game.gameState === GameStates.PAUSED) &&
+        isMobileDevice() &&
+        currentTime - lastOrientationCheck > 2000) {
+        lastOrientationCheck = currentTime;
+        checkOrientation();
+    }
+
     if (game.isTouchDevice) {
         handleTouches(game, touches);
     }
@@ -298,6 +388,10 @@ function drawGame(deltaTime) {
             break;
         case GameStates.PLAYING:
             drawPlayingScreen(deltaTime);
+            break;
+        case GameStates.PAUSED:
+            // Draw frozen game screen (no updates, no deltaTime progression)
+            drawPlayingScreen(0); // Pass 0 deltaTime to prevent updates
             break;
         case GameStates.GAME_OVER:
             drawGameOverScreen(deltaTime);
@@ -504,8 +598,6 @@ function drawPlayingScreen(deltaTime) {
                 // Rocket can hit any enemy (even flying in)
                 if (r.hit(target) && target.active && target.animationState !== 'dying') {
                     // Rocket hit! Destroy ALL enemies on screen
-                    // console.log('ROCKET HIT! Destroying all enemies!'); // Removed for performance
-
                     // Draw massive explosion effect
                     push();
                     noFill();
@@ -570,48 +662,86 @@ function drawPlayingScreen(deltaTime) {
 
 // Game Over screen
 function drawGameOverScreen(deltaTime) {
-    // Draw stars in background
-    game.drawStars(deltaTime);
+    // Priority 4: Wrap entire function in try-catch with fallback UI
+    try {
+        // Draw stars in background
+        game.drawStars(deltaTime);
 
-    // Finalize statistics when game ends
-    const stats = game.finalizeStats();
+        // Finalize statistics when game ends
+        const stats = game.finalizeStats();
 
-    // Log detailed stats to console only once
-    if (!game.statsLogged) {
-        console.log("Game Statistics:", stats);
+        // Log detailed stats to console only once
+        if (!game.statsLogged) {
+            console.log("Game Statistics:", stats);
 
-        // Get FPS stats from performance monitor
-        const fpsStats = game.performanceMonitor.getFpsStats();
-        console.log("FPS Statistics:", fpsStats);
+            // Get FPS stats from performance monitor
+            const fpsStats = game.performanceMonitor.getFpsStats();
+            console.log("FPS Statistics:", fpsStats);
 
-        sendStatsToGoogleSheets(game.playerData, stats, fpsStats);
-        game.statsLogged = true;
+            // Priority 2: Add .catch() to prevent unhandled promise rejection
+            sendStatsToGoogleSheets(game.playerData, stats, fpsStats)
+                .catch(error => {
+                    console.error('Failed to send analytics (non-critical):', error);
+                    // Analytics failure should not crash the game
+                });
+            game.statsLogged = true;
+        }
+
+        // Get top scores for leaderboard (synchronous - uses cache)
+        const topScores = game.scoreManager.getTopScoresSync(4);
+
+        // Find player's rank in full leaderboard
+        const playerRank = game.scoreManager.findPlayerRank(
+            game.playerData,
+            game.score,
+            Math.floor(game.stats.totalGameTime)
+        );
+
+        // Update game over screen (for hover effects and animation)
+        const virtualMouseX = (mouseX - getOffsetX()) / getScaleFactor();
+        const virtualMouseY = (mouseY - getOffsetY()) / getScaleFactor();
+        game.gameOverScreen.update(virtualMouseX, virtualMouseY, deltaTime);
+
+        // Draw game over screen
+        game.gameOverScreen.draw(
+            game.score,
+            game.wave,
+            Math.floor(game.stats.totalGameTime), // Use Math.floor for consistency with saved scores
+            game.playerData,
+            topScores,
+            playerRank
+        );
+    } catch (error) {
+        console.error('❌ Game over screen crashed:', error);
+
+        // Fallback: show simple error message with game stats
+        push();
+        background(30, 30, 35);
+        fill(255, 0, 0);
+        textAlign(CENTER, CENTER);
+        textSize(36);
+        text('GAME OVER', getVirtualWidth() / 2, getVirtualHeight() / 2 - 100);
+
+        fill(255);
+        textSize(24);
+        text(`Score: ${game.score}`, getVirtualWidth() / 2, getVirtualHeight() / 2 - 40);
+        text(`Wave: ${game.wave}`, getVirtualWidth() / 2, getVirtualHeight() / 2);
+
+        fill(255, 100, 100);
+        textSize(16);
+        text('Error displaying leaderboard', getVirtualWidth() / 2, getVirtualHeight() / 2 + 50);
+        text('Check console for details', getVirtualWidth() / 2, getVirtualHeight() / 2 + 75);
+
+        fill(100, 200, 100);
+        textSize(20);
+        text('Click to Restart', getVirtualWidth() / 2, getVirtualHeight() / 2 + 120);
+        pop();
+
+        // Allow restart on click or space
+        if (keyIsDown(32) || mouseIsPressed) {
+            game.restartGame();
+        }
     }
-
-    // Get top scores for leaderboard (synchronous - uses cache)
-    const topScores = game.scoreManager.getTopScoresSync(4);
-
-    // Find player's rank in full leaderboard
-    const playerRank = game.scoreManager.findPlayerRank(
-        game.playerData,
-        game.score,
-        Math.floor(game.stats.totalGameTime)
-    );
-
-    // Update game over screen (for hover effects and animation)
-    const virtualMouseX = (mouseX - getOffsetX()) / getScaleFactor();
-    const virtualMouseY = (mouseY - getOffsetY()) / getScaleFactor();
-    game.gameOverScreen.update(virtualMouseX, virtualMouseY, deltaTime);
-
-    // Draw game over screen
-    game.gameOverScreen.draw(
-        game.score,
-        game.wave,
-        Math.floor(game.stats.totalGameTime), // Use Math.floor for consistency with saved scores
-        game.playerData,
-        topScores,
-        playerRank
-    );
 }
 
 window.mousePressed = function() {
@@ -624,6 +754,47 @@ window.touchStarted = function() {
 
 window.keyPressed = function() {
     handleKeyPressed(game, key);
+}
+
+// Critical error screen
+function drawCriticalErrorScreen() {
+    push();
+    background(30, 0, 0); // Dark red background
+
+    fill(255, 50, 50);
+    textAlign(CENTER, CENTER);
+    textSize(48);
+    text('CRITICAL ERROR', getVirtualWidth() / 2, getVirtualHeight() / 2 - 120);
+
+    fill(255, 200, 200);
+    textSize(20);
+    text('The game encountered an unexpected error', getVirtualWidth() / 2, getVirtualHeight() / 2 - 60);
+
+    if (game.criticalError) {
+        fill(255, 255, 200);
+        textSize(16);
+        text(game.criticalError.message, getVirtualWidth() / 2, getVirtualHeight() / 2 - 20);
+
+        fill(200, 200, 200);
+        textSize(12);
+        text(`Game State: ${game.criticalError.gameState} | Wave: ${game.criticalError.wave} | Score: ${game.criticalError.score}`,
+             getVirtualWidth() / 2, getVirtualHeight() / 2 + 10);
+    }
+
+    fill(255, 255, 255);
+    textSize(18);
+    text('Check browser console (F12) for details', getVirtualWidth() / 2, getVirtualHeight() / 2 + 60);
+
+    fill(100, 200, 100);
+    textSize(16);
+    text('Press SPACE or click to reload the page', getVirtualWidth() / 2, getVirtualHeight() / 2 + 100);
+
+    pop();
+
+    // Allow reload on space or click
+    if (keyIsDown(32) || mouseIsPressed) {
+        window.location.reload();
+    }
 }
 
 // Global Event Listeners
@@ -641,38 +812,17 @@ if (window.visualViewport) {
         }
     });
 }
-// Zawsze reaguj na zmianę orientacji (prawdziwa zmiana układu)
+// Unified orientation change handler
 window.addEventListener('orientationchange', () => {
-    // Cancel any pending orientation timeout
-    if (orientationTimeoutId !== null) {
-        clearTimeout(orientationTimeoutId);
-        orientationTimeoutId = null;
-    }
+    console.log('📱 Orientation change event fired');
 
-    console.log('📱 Orientation change detected');
-
-    // Clear viewport cache immediately to prevent stale data
+    // Clear viewport cache to get fresh dimensions
     clearViewportCache();
 
-    // Use blocking poll to wait for confirmed landscape (eliminates timeout guessing)
-    waitForLandscape(() => {
-        handleResizeEvent(game, resizeCanvas);
+    // Handle viewport resize
+    handleResizeEvent(game, resizeCanvas);
 
-        // CRITICAL FIX: Start pending game after rotation to landscape
-        // This handles the scenario where user started game in portrait
-        if (pendingPlayerData !== null) {
-            console.log('✅ Starting pending game after landscape confirmation...');
-
-            // Clear cache again before final calculation
-            clearViewportCache();
-
-            // Force SYNCHRONOUS viewport update with confirmed orientation
-            const dims = updateGameDimensions(game);
-            resizeCanvas(dims.width, dims.height);
-
-            // Now safe to start the game (viewport is up-to-date)
-            game.startGame(pendingPlayerData);
-            pendingPlayerData = null; // Clear pending data
-        }
-    });
+    // Check orientation and handle pause/resume logic
+    // (debounced, handles all scenarios: pre-game, playing, paused)
+    checkOrientation();
 });

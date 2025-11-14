@@ -18,6 +18,9 @@ export class GameOverScreen {
         this.shakeTime = 0;
         this.shakeIntensity = 0;
 
+        // Small screen detection for responsive layout
+        this.isSmallScreen = false;
+
         this.setupLayout();
     }
 
@@ -25,9 +28,18 @@ export class GameOverScreen {
         const vw = getVirtualWidth();
         const vh = getVirtualHeight();
 
-        // Center the Restart button at bottom
-        this.restartButton.x = vw / 2 - this.restartButton.width / 2;
-        this.restartButton.y = vh - 100;
+        // Detect small screens (iPhone 13 mini and similar)
+        this.isSmallScreen = vh <= 620;
+
+        if (this.isSmallScreen) {
+            // Side-by-side layout: button to the right of leaderboard
+            this.restartButton.x = vw - this.restartButton.width - 50;
+            this.restartButton.y = 350;
+        } else {
+            // Normal layout: center the Restart button at bottom
+            this.restartButton.x = vw / 2 - this.restartButton.width / 2;
+            this.restartButton.y = vh - 100;
+        }
     }
 
     reset() {
@@ -102,12 +114,36 @@ export class GameOverScreen {
     }
 
     draw(score, wave, time, playerData, topScores, playerRank = null) {
-        const vw = getVirtualWidth();
-        const vh = getVirtualHeight();
-        const centerX = vw / 2;
+        // Priority 5: Input validation and try-catch for robustness
+        try {
+            // Validate inputs
+            if (typeof score !== 'number' || isNaN(score)) {
+                console.error('Invalid score:', score);
+                score = 0;
+            }
+            if (typeof wave !== 'number' || isNaN(wave)) {
+                console.error('Invalid wave:', wave);
+                wave = 0;
+            }
+            if (typeof time !== 'number' || isNaN(time)) {
+                console.error('Invalid time:', time);
+                time = 0;
+            }
+            if (!playerData || typeof playerData !== 'object') {
+                console.error('Invalid playerData:', playerData);
+                playerData = { nick: 'Unknown', email: '' };
+            }
+            if (!Array.isArray(topScores)) {
+                console.error('Invalid topScores:', topScores);
+                topScores = [];
+            }
 
-        // Check if player is in top 4
-        const isInTop4 = playerRank && playerRank.rank <= 4;
+            const vw = getVirtualWidth();
+            const vh = getVirtualHeight();
+            const centerX = vw / 2;
+
+            // Check if player is in top 4
+            const isInTop4 = playerRank && playerRank.rank <= 4;
 
         // Gray space/cosmic background (semi-transparent to show stars)
         push();
@@ -243,7 +279,8 @@ export class GameOverScreen {
             text(rankText, centerX, statsY + statsSpacing + 35);
             pop();
 
-            congratsOffset = 30; // Extra space for the message
+            // Reduce spacing on small screens to prevent overlap
+            congratsOffset = this.isSmallScreen ? 15 : 30;
         }
 
         // Top Scores Section - GTA style
@@ -275,10 +312,19 @@ export class GameOverScreen {
         fill(120, 120, 120);
         textStyle(BOLD);
 
-        const col1 = centerX - 200;
-        const col2 = centerX - 80;
-        const col3 = centerX + 40;
-        const col4 = centerX + 170;
+        // Adjust column positions for small screens (shift left to make room for button)
+        let col1, col2, col3, col4;
+        if (this.isSmallScreen) {
+            col1 = centerX - 320;
+            col2 = centerX - 200;
+            col3 = centerX - 80;
+            col4 = centerX + 30;
+        } else {
+            col1 = centerX - 200;
+            col2 = centerX - 80;
+            col3 = centerX + 40;
+            col4 = centerX + 170;
+        }
 
         textAlign(LEFT, CENTER);
         text('#', col1, tableY);
@@ -453,5 +499,28 @@ export class GameOverScreen {
              this.restartButton.y + this.restartButton.height / 2);
 
         pop();
+
+        } catch (error) {
+            console.error('❌ Error rendering game over screen:', error);
+
+            // Fallback rendering
+            push();
+            background(30, 30, 35);
+            fill(255, 0, 0);
+            textAlign(CENTER, CENTER);
+            textSize(36);
+            text('GAME OVER', getVirtualWidth() / 2, getVirtualHeight() / 2 - 50);
+
+            fill(255);
+            textSize(24);
+            text(`Score: ${score}`, getVirtualWidth() / 2, getVirtualHeight() / 2);
+            text(`Wave: ${wave}`, getVirtualWidth() / 2, getVirtualHeight() / 2 + 40);
+
+            // Show restart button
+            fill(100, 200, 100);
+            textSize(20);
+            text('Click to Restart', getVirtualWidth() / 2, getVirtualHeight() / 2 + 100);
+            pop();
+        }
     }
 }

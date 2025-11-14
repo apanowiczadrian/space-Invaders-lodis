@@ -10,6 +10,17 @@ export class ScoreManager {
 
     // Save a new score
     saveScore(playerData, score, wave, time) {
+        // Validate playerData
+        if (!playerData || typeof playerData !== 'object') {
+            console.error('❌ Cannot save score: playerData is null or invalid');
+            return null;
+        }
+
+        if (!playerData.nick || typeof playerData.nick !== 'string') {
+            console.error('❌ Cannot save score: playerData.nick is missing or invalid');
+            return null;
+        }
+
         // Don't save scores of 0 or negative
         if (score <= 0) {
             console.log('⚠️ Score of 0 or less not saved to leaderboard');
@@ -20,7 +31,7 @@ export class ScoreManager {
 
         const newScore = {
             nick: playerData.nick,
-            email: playerData.email,
+            email: playerData.email || '', // Fallback to empty string if missing
             score: score,
             wave: wave,
             time: time, // in seconds
@@ -59,11 +70,6 @@ export class ScoreManager {
             console.error('Error loading local scores:', e);
             return [];
         }
-    }
-
-    // DEPRECATED: Używaj getLocalScores() lub getTopScores()
-    getScores() {
-        return this.getLocalScores();
     }
 
     // Get top N scores (from online or localStorage)
@@ -153,6 +159,12 @@ export class ScoreManager {
     // Find player's rank in leaderboard (1-indexed)
     // Returns object with rank and score data, or null if not found
     findPlayerRank(playerData, score, time) {
+        // Validate playerData
+        if (!playerData || typeof playerData !== 'object' || !playerData.nick) {
+            console.error('❌ Cannot find rank: playerData is null or invalid');
+            return null;
+        }
+
         // Don't rank scores of 0 or less
         if (score <= 0) {
             return null;
@@ -209,11 +221,9 @@ export class ScoreManager {
         if (!this.useOnlineLeaderboard) return;
 
         try {
-            console.log('📊 Preloading online leaderboard...');
             const scores = await fetchTopScores(limit);
             if (scores && scores.length > 0) {
                 this.onlineScoresCache = scores;
-                console.log(`✅ Preloaded ${scores.length} scores`);
             }
         } catch (error) {
             console.error('Failed to preload leaderboard:', error);

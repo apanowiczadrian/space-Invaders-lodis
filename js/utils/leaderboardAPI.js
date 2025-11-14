@@ -23,7 +23,6 @@ export async function fetchTopScores(limit = 10, forceRefresh = false) {
     // Sprawdź cache
     const now = Date.now();
     if (!forceRefresh && leaderboardCache && (now - lastFetchTime) < CACHE_DURATION) {
-        console.log('📊 Leaderboard: Using cached data');
         return leaderboardCache.slice(0, limit);
     }
 
@@ -34,10 +33,7 @@ export async function fetchTopScores(limit = 10, forceRefresh = false) {
     }
 
     try {
-        console.log('📊 Fetching leaderboard from Google Sheets...');
-
         const url = `${GOOGLE_SHEETS_ENDPOINT}?action=leaderboard&limit=${limit}`;
-        console.log('🔗 URL:', url);
 
         const response = await fetch(url, {
             method: 'GET',
@@ -46,15 +42,12 @@ export async function fetchTopScores(limit = 10, forceRefresh = false) {
             }
         });
 
-        console.log('📡 Response status:', response.status, response.statusText);
-
         if (!response.ok) {
             console.error('❌ HTTP error:', response.status, response.statusText);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const responseText = await response.text();
-        console.log('📄 Raw response:', responseText);
 
         let data;
         try {
@@ -65,14 +58,12 @@ export async function fetchTopScores(limit = 10, forceRefresh = false) {
             return [];
         }
 
-        console.log('📦 Parsed data:', data);
-
         if (data.success && data.scores) {
             // Zaktualizuj cache
             leaderboardCache = data.scores;
             lastFetchTime = now;
 
-            console.log(`✅ Leaderboard fetched: ${data.scores.length} scores (total: ${data.total})`);
+            console.log('✅ poprawnie pobrano wyniki');
             return data.scores;
         } else {
             console.error('❌ Leaderboard fetch failed:', data.error || 'Unknown error');
@@ -85,7 +76,6 @@ export async function fetchTopScores(limit = 10, forceRefresh = false) {
 
         // Zwróć cache jeśli dostępny (lepsze niż nic)
         if (leaderboardCache) {
-            console.log('⚠️ Using stale cached data due to fetch error');
             return leaderboardCache.slice(0, limit);
         }
 
@@ -99,7 +89,6 @@ export async function fetchTopScores(limit = 10, forceRefresh = false) {
 export function clearLeaderboardCache() {
     leaderboardCache = null;
     lastFetchTime = 0;
-    console.log('🗑️ Leaderboard cache cleared');
 }
 
 /**

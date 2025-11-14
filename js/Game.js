@@ -13,7 +13,6 @@ import { PowerUpManager } from './systems/PowerUpManager.js';
 import { CometManager } from './systems/CometManager.js';
 import { GameStates } from './core/GameStates.js';
 import { ScoreManager } from './systems/ScoreManager.js';
-import { StartMenu } from './ui/StartMenu.js';
 import { GameOverScreen } from './ui/GameOverScreen.js';
 import { SpatialGrid } from './systems/SpatialGrid.js';
 import { EnemyBatchRenderer } from './systems/EnemyBatchRenderer.js';
@@ -23,9 +22,9 @@ export class Game {
     constructor() {
         // Game state management
         this.gameState = GameStates.MENU;
+        this.previousGameState = null; // For pause/resume functionality
         this.playerData = { nick: '', email: '' };
         this.scoreManager = new ScoreManager();
-        this.startMenu = null; // Initialize later
         this.gameOverScreen = null; // Initialize later
 
         this.player = null;
@@ -34,7 +33,6 @@ export class Game {
         this.enemyProjectilePool = new ProjectilePool(20, 'enemy');
         this.rocketPool = new RocketPool(5); // Pool for rocket power-up
         this.gameOver = false;
-        this.gameWin = false;
         this.score = 0;
         this.wave = 1; // Wave counter starts at 1
         this.retryButton = null; // Initialize later
@@ -77,6 +75,10 @@ export class Game {
         // Deferred entity spawning flag
         this.entitiesPending = false; // True when entities should spawn in next draw() frame
 
+        // Critical error handling
+        this.hasCriticalError = false;
+        this.criticalError = null;
+
         // Game statistics
         this.stats = {
             totalShots: 0,
@@ -102,7 +104,6 @@ export class Game {
     setup() {
         // Initialize UI components
         // StartMenu is now HTML-based (see index.html), not canvas-based
-        // this.startMenu = new StartMenu(this); // DISABLED - using HTML menu
         this.gameOverScreen = new GameOverScreen(this);
         this.initTouchStrips();
 
@@ -130,7 +131,6 @@ export class Game {
         // Used for deferred entity spawning to prevent portrait-mode bug
         this.killedEnemies = 0;
         this.gameOver = false;
-        this.gameWin = false;
         this.score = 0;
         this.wave = 1;
         this.lives = 3;
@@ -573,8 +573,6 @@ export class Game {
                 cometCount++;
             }
         }
-
-        // console.log(`Rocket destroyed ${enemyCount} enemies and ${cometCount} comets!`); // Disabled for performance
     }
 
     jumpToWave(waveNumber) {
@@ -608,7 +606,6 @@ export class Game {
 
             if (this.activePowerUps[type] <= 0) {
                 delete this.activePowerUps[type];
-                // console.log(`Power-up ${type} expired`); // Disabled for performance
             }
         }
 
@@ -664,7 +661,6 @@ export class Game {
             this.rocketAmmo--;
             this.stats.totalShots++;
             this.stats.shotsByWeapon.rocket++;
-            // console.log('Rocket fired! Remaining: ' + this.rocketAmmo); // Disabled for performance
             return true;
         }
 
@@ -712,8 +708,36 @@ export class Game {
 
     // State management methods
     startGame(playerData) {
-        // Save player data
-        this.playerData = playerData;
+        // CRITICAL VALIDATION: playerData must be valid to start game
+        if (!playerData || typeof playerData !== 'object' || !playerData.nick || typeof playerData.nick !== 'string') {
+            console.error('❌ Invalid playerData - cannot start game without valid player data');
+            console.error('   Received playerData:', playerData);
+
+            // Try to load from localStorage as last attempt
+            try {
+                const saved = localStorage.getItem('spaceInvPlayerData');
+                if (saved) {
+                    const recoveredData = JSON.parse(saved);
+                    if (recoveredData && recoveredData.nick && typeof recoveredData.nick === 'string') {
+                        console.log('✅ Recovered valid playerData from localStorage');
+                        this.playerData = recoveredData;
+                        // Continue with game start below
+                    } else {
+                        throw new Error('Invalid data in localStorage');
+                    }
+                } else {
+                    throw new Error('No data in localStorage');
+                }
+            } catch (e) {
+                console.error('❌ Cannot recover playerData:', e.message);
+                // ABORT GAME START - return to menu
+                this.returnToMenu('Błąd danych gracza. Proszę wprowadzić dane ponownie.');
+                return;
+            }
+        } else {
+            // Valid playerData received
+            this.playerData = playerData;
+        }
 
         // DEFERRED ENTITY SPAWNING:
         // Don't spawn entities immediately - wait for first draw() frame
@@ -783,13 +807,48 @@ export class Game {
             this.stats.shotsPerSecond = (this.stats.totalShots / this.stats.totalGameTime).toFixed(2);
         }
 
-        // Save score to leaderboard
-        this.scoreManager.saveScore(
-            this.playerData,
-            this.score,
-            this.wave,
-            Math.floor(this.stats.totalGameTime)
-        );
+        // CRITICAL VALIDATION: playerData must be valid to save score
+        if (!this.playerData || !this.playerData.nick) {
+            console.error('❌ Cannot save score: playerData is invalid at endGame');
+            console.error('   playerData:', this.playerData);
+
+            // Try to recover from localStorage as last attempt
+            try {
+                const saved = localStorage.getItem('spaceInvPlayerData');
+                if (saved) {
+                    const recoveredData = JSON.parse(saved);
+                    if (recoveredData && recoveredData.nick && typeof recoveredData.nick === 'string') {
+                        console.log('✅ Recovered playerData from localStorage');
+                        this.playerData = recoveredData;
+                        // Save score with recovered data
+                        this.scoreManager.saveScore(
+                            this.playerData,
+                            this.score,
+                            this.wave,
+                            Math.floor(this.stats.totalGameTime)
+                        );
+                    } else {
+                        throw new Error('Invalid data in localStorage');
+                    }
+                } else {
+                    throw new Error('No data in localStorage');
+                }
+            } catch (e) {
+                console.error('❌ Failed to recover playerData:', e.message);
+                // CRITICAL: Cannot save score without valid playerData
+                // Return to menu instead of showing game over screen
+                this.returnToMenu('Błąd danych gracza. Wynik nie został zapisany. Proszę wprowadzić dane ponownie.');
+                return;
+            }
+        } else {
+            // Valid playerData - save score normally
+            this.scoreManager.saveScore(
+                this.playerData,
+                this.score,
+                this.wave,
+                Math.floor(this.stats.totalGameTime)
+            );
+        }
 
         // Reset game over screen animation
         this.gameOverScreen.reset();
@@ -804,9 +863,95 @@ export class Game {
         this.gameState = GameStates.PLAYING;
     }
 
-    returnToMenu() {
-        // Reset to menu state
+    returnToMenu(errorMessage = '') {
+        // Return to HTML menu (used when playerData is invalid)
+        console.log('🔙 Returning to menu:', errorMessage);
+
+        // Change state to MENU
         this.gameState = GameStates.MENU;
-        this.gameOver = false;
+
+        // Hide canvas
+        const canvas = document.querySelector('canvas');
+        if (canvas) {
+            canvas.classList.remove('game-ready');
+            canvas.style.display = 'none';
+        }
+
+        // Show HTML menu
+        const menuOverlay = document.getElementById('start-menu');
+        if (menuOverlay) {
+            menuOverlay.style.display = 'flex';
+        }
+
+        // Hide PWA screen (if visible)
+        const pwaScreen = document.getElementById('pwa-install-screen');
+        if (pwaScreen) {
+            pwaScreen.style.display = 'none';
+        }
+
+        // Show error message in form (if provided)
+        if (errorMessage) {
+            const errorMessageEl = document.getElementById('error-message');
+            if (errorMessageEl) {
+                errorMessageEl.textContent = errorMessage;
+                errorMessageEl.style.display = 'block';
+                errorMessageEl.style.color = '#ff4444';
+                errorMessageEl.style.marginTop = '10px';
+                errorMessageEl.style.marginBottom = '10px';
+                errorMessageEl.style.textAlign = 'center';
+                errorMessageEl.style.fontSize = '14px';
+                errorMessageEl.style.fontWeight = 'bold';
+            }
+        }
+
+        // Reset game state
+        this.playerData = { nick: '', email: '' };
+        this.resetGameWithoutEntities();
+    }
+
+    pauseGame() {
+        // Pause game due to portrait orientation
+        if (this.gameState === GameStates.PLAYING) {
+            this.previousGameState = GameStates.PLAYING;
+            this.gameState = GameStates.PAUSED;
+            console.log('⏸️ Game paused (portrait orientation)');
+        }
+    }
+
+    resumeGame() {
+        // Resume game after returning to landscape
+        if (this.gameState === GameStates.PAUSED) {
+            this.gameState = this.previousGameState || GameStates.PLAYING;
+            this.previousGameState = null;
+            console.log('▶️ Game resumed (landscape orientation)');
+        }
+    }
+
+    handleCriticalError(error) {
+        // Global error handler for critical crashes
+        console.error('🚨 CRITICAL ERROR DETECTED:', error);
+
+        // Store error details for display
+        this.criticalError = {
+            message: error?.message || 'Unknown error',
+            stack: error?.stack || 'No stack trace',
+            timestamp: new Date().toISOString(),
+            gameState: this.gameState,
+            wave: this.wave,
+            score: this.score
+        };
+
+        // Set flag to show error screen
+        this.hasCriticalError = true;
+
+        // Log context for debugging
+        console.error('Game context at crash:', {
+            gameState: this.gameState,
+            wave: this.wave,
+            score: this.score,
+            lives: this.lives,
+            enemies: this.enemies?.length || 0,
+            playerExists: !!this.player
+        });
     }
 }

@@ -263,7 +263,6 @@ export async function sendStatsToGoogleSheets(playerData, stats, fpsStats = null
 
     try {
         // Zbierz pełny fingerprint przeglądarki (z IP, FPS stats i cheat detection)
-        console.log('📊 Collecting browser fingerprint...');
         const browserFingerprint = await getBrowserFingerprint(fpsStats, stats);
 
         // Przygotuj dane do wysłania
@@ -307,26 +306,43 @@ export async function sendStatsToGoogleSheets(playerData, stats, fpsStats = null
             gameUrl: window.location.href
         };
 
-        console.log('📊 Sending stats to Google Sheets...', payload);
-        console.log('🔍 Browser fingerprint:', browserFingerprint);
+        // Priority 3: Add 5s timeout to fetch using AbortController
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
-        // Wyślij POST request
-        const response = await fetch(GOOGLE_SHEETS_ENDPOINT, {
-            method: 'POST',
-            mode: 'no-cors', // Important: Google Apps Script wymaga no-cors
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        });
+        try {
+            // Wyślij POST request
+            const response = await fetch(GOOGLE_SHEETS_ENDPOINT, {
+                method: 'POST',
+                mode: 'no-cors', // Important: Google Apps Script wymaga no-cors
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+                signal: controller.signal // Add abort signal
+            });
 
-        // Note: mode: 'no-cors' nie pozwala odczytać response,
-        // ale request zostanie wysłany i przetworzony przez Apps Script
-        console.log('✅ Stats sent to Google Sheets!');
-        return true;
+            clearTimeout(timeoutId);
+
+            // Note: mode: 'no-cors' nie pozwala odczytać response,
+            // ale request zostanie wysłany i przetworzony przez Apps Script
+            console.log('✅ poprawnie zapisano wynik do bazy');
+            return true;
+
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+
+            if (fetchError.name === 'AbortError') {
+                console.error('❌ Analytics timeout after 5s');
+            } else {
+                console.error('❌ Error sending stats to Google Sheets:', fetchError);
+            }
+            return false;
+        }
 
     } catch (error) {
-        console.error('❌ Error sending stats to Google Sheets:', error);
+        // Outer catch for fingerprint collection errors
+        console.error('❌ Error collecting fingerprint:', error);
         return false;
     }
 }
