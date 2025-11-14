@@ -27,7 +27,8 @@
       "Bash(then echo \"Dependencies installed\")",
       "Bash(else echo \"Dependencies NOT installed - run npm install\")",
       "Bash(powershell -Command:*)",
-      "Bash(del \"c:\\Users\\Adrian\\Documents\\Develop\\gaming_house\\gra\\js\\ui\\StartMenu.js\")"
+      "Bash(del \"c:\\Users\\Adrian\\Documents\\Develop\\gaming_house\\gra\\js\\ui\\StartMenu.js\")",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

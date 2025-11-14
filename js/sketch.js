@@ -262,15 +262,17 @@ window.setup = function() {
         }
     }
 
+    // Dispatch canvasReady event for game.html
+    // This allows game.html to know when p5.js setup is complete
+    window.dispatchEvent(new CustomEvent('canvasReady'));
+    console.log('✅ Canvas ready event dispatched');
+
     // Listen for start game event from HTML menu
     window.addEventListener('startGame', function(e) {
         const playerData = e.detail;
 
-        // Hide HTML menu
-        const menuOverlay = document.getElementById('start-menu');
-        if (menuOverlay) {
-            menuOverlay.style.display = 'none';
-        }
+        // NOTE: HTML menu hiding removed - game.html doesn't have HTML menu
+        // Menu is on separate page (start-menu.html) now
 
         // Runtime PWA detection - warn if not in standalone mode
         const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches ||

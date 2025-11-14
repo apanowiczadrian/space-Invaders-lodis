@@ -6,10 +6,13 @@ export class GameOverScreen {
         this.isMobile = isMobileDevice();
         this.pixelFont = game.pixelFont; // Font z game object
 
-        // Restart button (changed from Play Again)
-        this.restartButton = {
-            x: 0, y: 0, width: 250, height: 60,
-            isHovered: false
+        // FAB button with heart icon (changed from rectangular Restart button)
+        this.fabButton = {
+            x: 80,           // Fixed position: left margin
+            y: 80,           // Fixed position: top margin
+            radius: 62.5,    // Diameter 125px = 5× bigger than gameplay hearts (25px)
+            isHovered: false,
+            pulsePhase: 0    // For heartbeat animation
         };
 
         this.wastedAlpha = 0;
@@ -29,17 +32,11 @@ export class GameOverScreen {
         const vh = getVirtualHeight();
 
         // Detect small screens (iPhone 13 mini and similar)
+        // Used for spacing adjustments in other parts of UI
         this.isSmallScreen = vh <= 620;
 
-        if (this.isSmallScreen) {
-            // Side-by-side layout: button to the right of leaderboard
-            this.restartButton.x = vw - this.restartButton.width - 50;
-            this.restartButton.y = 350;
-        } else {
-            // Normal layout: center the Restart button at bottom
-            this.restartButton.x = vw / 2 - this.restartButton.width / 2;
-            this.restartButton.y = vh - 100;
-        }
+        // FAB button has fixed position (80, 80) set in constructor
+        // No conditional positioning needed
     }
 
     reset() {
@@ -79,25 +76,27 @@ export class GameOverScreen {
             this.shakeIntensity = Math.max(0, this.shakeIntensity - (deltaTime || 0.016) * 50); // Decrease intensity
         }
 
-        // Check if mouse is over restart button (only on desktop for hover effect)
+        // Check if mouse is over FAB button (only on desktop for hover effect)
         // On mobile, we skip hover and check directly in handleClick()
         if (!this.isMobile) {
-            if (mouseX >= this.restartButton.x && mouseX <= this.restartButton.x + this.restartButton.width &&
-                mouseY >= this.restartButton.y && mouseY <= this.restartButton.y + this.restartButton.height) {
-                this.restartButton.isHovered = true;
+            const dx = mouseX - this.fabButton.x;
+            const dy = mouseY - this.fabButton.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < this.fabButton.radius) {
+                this.fabButton.isHovered = true;
             } else {
-                this.restartButton.isHovered = false;
+                this.fabButton.isHovered = false;
             }
         }
     }
 
     handleClick(mouseX, mouseY) {
-        // On mobile: check position directly (no hover required)
-        // On desktop: check isHovered flag
-        const isInButton = mouseX >= this.restartButton.x &&
-                          mouseX <= this.restartButton.x + this.restartButton.width &&
-                          mouseY >= this.restartButton.y &&
-                          mouseY <= this.restartButton.y + this.restartButton.height;
+        // Circular click detection for FAB button
+        const dx = mouseX - this.fabButton.x;
+        const dy = mouseY - this.fabButton.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const isInButton = distance < this.fabButton.radius;
 
         if (this.isMobile) {
             // Mobile: direct click detection (no hover state needed)
@@ -106,7 +105,7 @@ export class GameOverScreen {
             }
         } else {
             // Desktop: use hover state
-            if (this.restartButton.isHovered) {
+            if (this.fabButton.isHovered) {
                 return true; // Signal to restart game
             }
         }
@@ -312,19 +311,11 @@ export class GameOverScreen {
         fill(120, 120, 120);
         textStyle(BOLD);
 
-        // Adjust column positions for small screens (shift left to make room for button)
-        let col1, col2, col3, col4;
-        if (this.isSmallScreen) {
-            col1 = centerX - 320;
-            col2 = centerX - 200;
-            col3 = centerX - 80;
-            col4 = centerX + 30;
-        } else {
-            col1 = centerX - 200;
-            col2 = centerX - 80;
-            col3 = centerX + 40;
-            col4 = centerX + 170;
-        }
+        // Centered column positions (FAB button no longer interferes)
+        const col1 = centerX - 200;
+        const col2 = centerX - 80;
+        const col3 = centerX + 40;
+        const col4 = centerX + 170;
 
         textAlign(LEFT, CENTER);
         text('#', col1, tableY);
@@ -472,31 +463,53 @@ export class GameOverScreen {
 
         pop();
 
-        // RESTART button - GTA style
+        // FAB button with heart icon and animations
         push();
 
-        if (this.restartButton.isHovered) {
-            fill(50, 50, 50);
-            stroke(220, 220, 220);
-            strokeWeight(3);
-        } else {
-            fill(25, 25, 25);
-            stroke(130, 130, 130);
-            strokeWeight(2);
+        // Calculate heartbeat animation (double pulse)
+        const t = (millis() * 0.004) % (2 * Math.PI);
+        const beat1 = Math.max(0, Math.sin(t * 2));
+        const beat2 = Math.max(0, Math.sin(t * 2 - 0.3));
+        const heartbeatPulse = 1 + (beat1 + beat2) * 0.08;
+
+        // Calculate glow pulse
+        const glowPulse = Math.sin(millis() * 0.003) * 0.1 + 1.0;
+
+        // Hover scale effect
+        const hoverScale = this.fabButton.isHovered ? 1.15 : 1.0;
+        const finalScale = hoverScale * heartbeatPulse;
+
+        // Draw glow effect
+        if (this.fabButton.isHovered) {
+            noFill();
+            stroke(255, 100, 100, 100 * glowPulse);
+            strokeWeight(6);
+            circle(this.fabButton.x, this.fabButton.y, this.fabButton.radius * 2 * finalScale + 20);
         }
 
-        rect(this.restartButton.x, this.restartButton.y,
-             this.restartButton.width, this.restartButton.height, 5);
+        // Draw circular background
+        if (this.fabButton.isHovered) {
+            fill(60, 60, 60);
+            stroke(255, 120, 120);
+            strokeWeight(4);
+        } else {
+            fill(40, 40, 40);
+            stroke(255, 100, 100);
+            strokeWeight(3);
+        }
+        circle(this.fabButton.x, this.fabButton.y, this.fabButton.radius * 2 * finalScale);
 
-        // Button text
-        fill(this.restartButton.isHovered ? 255 : 200);
-        noStroke();
-        textAlign(CENTER, CENTER);
-        textSize(22);
-        textStyle(BOLD);
-        textFont('Orbitron, Arial, sans-serif');
-        text('RESTART', this.restartButton.x + this.restartButton.width / 2,
-             this.restartButton.y + this.restartButton.height / 2);
+        // Draw heart icon
+        imageMode(CENTER);
+        tint(255, 100, 100); // Red tint for heart
+        image(
+            this.game.heartImg,
+            this.fabButton.x,
+            this.fabButton.y,
+            this.fabButton.radius * 1.3 * finalScale,
+            this.fabButton.radius * 1.3 * finalScale
+        );
+        noTint();
 
         pop();
 
