@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Tabela Wyników - LODIS GALAGA</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="shared/styles.css">
+
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="assets/spaceship.png">
+    <meta name="theme-color" content="#000000">
+
+    <!-- iOS/Android Full-Screen and Viewport Control -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <style>
+        /* Additional styles for leaderboard page */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .button-group .start-button {
+            flex: 1;
+            margin-top: 0;
+        }
+
+        #loading, #error {
+            font-family: 'Rajdhani', Arial, sans-serif;
+            font-size: 16px;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #error {
+            color: rgb(255, 120, 120);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 4px solid rgba(100, 100, 255, 0.3);
+            border-top: 4px solid rgb(100, 150, 255);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            font-family: 'Rajdhani', Arial, sans-serif;
+            font-size: 16px;
+            color: rgb(180, 180, 220);
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Leaderboard Page -->
+    <div class="menu-overlay">
+        <div class="menu-container">
+            <h1 class="menu-title">🏆 TABELA WYNIKÓW</h1>
+
+            <!-- Search Bar -->
+            <input type="text" id="search" placeholder="Wyszukaj gracza..." class="search-input">
+
+            <!-- Loading State -->
+            <div id="loading">
+                <div class="spinner"></div>
+                <p>Ładowanie wyników...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" style="display:none;">
+                <p>❌ Błąd ładowania wyników</p>
+                <p>Sprawdź połączenie z internetem</p>
+            </div>
+
+            <!-- Leaderboard List -->
+            <div id="leaderboard-list" class="leaderboard-full" style="display:none;">
+                <!-- Filled by JavaScript -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-state" style="display:none;">
+                <div class="empty-state-icon">📊</div>
+                <p>Brak wyników do wyświetlenia</p>
+            </div>
+
+            <!-- Buttons -->
+            <div class="button-group">
+                <button onclick="location.href='start-menu.html'" class="start-button">
+                    🏠 Menu Główne
+                </button>
+                <button onclick="location.reload()" class="start-button">
+                    🔄 Odśwież
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Logic -->
+    <script type="module">
+        import { ScoreManager } from './js/systems/ScoreManager.js';
+
+        const scoreManager = new ScoreManager();
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLeaderboard();
+            setupSearch();
+        });
+
+        // Load leaderboard data
+        async function loadLeaderboard() {
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const listEl = document.getElementById('leaderboard-list');
+            const emptyEl = document.getElementById('empty-state');
+
+            try {
+                console.log('📊 Loading leaderboard...');
+                const scores = await scoreManager.getTopScores(100);
+
+                // Hide loading
+                loadingEl.style.display = 'none';
+
+                if (!scores || scores.length === 0) {
+                    // Show empty state
+                    emptyEl.style.display = 'block';
+                    return;
+.
+                }
+
+                // Display scores
+                displayScores(scores);
+                listEl.style.display = 'block';
+
+                console.log(`✅ Loaded ${scores.length} scores`);
+            } catch (error) {
+                console.error('❌ Error loading leaderboard:', error);
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+            }
+        }
+
+        // Display scores in the list
+        function displayScores(scores) {
+            const list = document.getElementById('leaderboard-list');
+
+            list.innerHTML = scores.map((score, index) => {
+                const rank = index + 1;
+                const isTopThree = rank <= 3;
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+
+                return `
+                    <div class="leaderboard-row ${isTopThree ? 'top-three' : ''}" data-nick="${score.nick.toLowerCase()}">
+                        <span class="rank">${medal} #${rank}</span>
+                        <span class="nick">${escapeHtml(score.nick)}</span>
+                        <span class="score">${score.score}</span>
+                        <span class="wave">W${score.wave}</span>
+                        <span class="time">${score.time}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Setup search functionality
+        function setupSearch() {
+            const searchInput = document.getElementById('search');
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                const rows = document.querySelectorAll('.leaderboard-row');
+
+                if (!query) {
+                    // Show all rows if search is empty
+                    rows.forEach(row => row.style.display = 'flex');
+                    return;
+                }
+
+                // Filter rows
+                rows.forEach(row => {
+                    const nick = row.getAttribute('data-nick');
+                    if (nick && nick.includes(query)) {
+                        row.style.display = 'flex';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

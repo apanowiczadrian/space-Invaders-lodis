@@ -1,0 +1,513 @@
+/* ===================================
+   SHARED STYLES FOR ALL PAGES
+   LODIS GALAGA - Common CSS
+   =================================== */
+
+/* Google Fonts Import */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Russo+One&display=swap');
+
+/* ===================================
+   GLOBAL RESET & BASE STYLES
+   =================================== */
+
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    background-color: #000; /* Black background for the page */
+}
+
+/* ===================================
+   CANVAS STYLES
+   =================================== */
+
+canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100; /* Below menu overlay (which is z-index: 1000) */
+
+    /* Prevent iOS text selection/callout behaviors */
+    -webkit-user-select: none; /* Safari */
+    user-select: none;
+    -webkit-touch-callout: none; /* iOS */
+
+    /* Crisp rendering and disable touch actions */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    touch-action: none;
+
+    /* Allow clicks to pass through when hidden */
+    pointer-events: auto;
+}
+
+canvas[style*="display: none"] {
+    pointer-events: none !important;
+    z-index: -1 !important; /* Move completely behind when hidden */
+}
+
+/* Game Ready State - controls canvas visibility via class instead of inline styles */
+canvas {
+    display: none; /* Hidden by default */
+}
+
+canvas.game-ready {
+    display: block !important; /* Show when game is ready */
+}
+
+/* ===================================
+   PORTRAIT WARNING OVERLAY
+   =================================== */
+
+#portrait-warning {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a0a2e 0%, #0f0519 100%);
+    z-index: 10000;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Orbitron', sans-serif;
+}
+
+#portrait-warning.active {
+    display: flex;
+}
+
+.rotation-icon {
+    font-size: 80px;
+    margin-bottom: 30px;
+    animation: rotatePhone 2s ease-in-out infinite;
+}
+
+@keyframes rotatePhone {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    50% {
+        transform: rotate(90deg);
+    }
+}
+
+.portrait-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #00ffff;
+    margin-bottom: 20px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+}
+
+.portrait-text {
+    font-size: 18px;
+    color: #ffffff;
+    text-align: center;
+    max-width: 80%;
+    line-height: 1.6;
+    opacity: 0.9;
+}
+
+/* ===================================
+   MENU OVERLAY SYSTEM
+   =================================== */
+
+.menu-overlay {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh; /* Auto-adjusts when keyboard appears */
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    overflow: auto; /* Auto-scroll for keyboard */
+    -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+    pointer-events: auto; /* Ensure clicks work on mobile */
+}
+
+.menu-container {
+    background: rgb(20, 20, 40);
+    border: 2px solid rgb(100, 100, 255);
+    border-radius: 10px;
+    padding: 30px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 0 30px rgba(100, 100, 255, 0.3);
+    margin: auto; /* Center vertically when scrolling */
+}
+
+.menu-title {
+    font-family: 'Orbitron', Impact, sans-serif;
+    font-size: 28px;
+    font-weight: bold;
+    color: #fff;
+    text-align: center;
+    margin: 0 0 10px 0;
+    text-shadow: 0 0 10px rgba(100, 150, 255, 0.5);
+}
+
+.menu-subtitle {
+    font-family: 'Rajdhani', Arial, sans-serif;
+    font-size: 13px;
+    color: rgb(180, 180, 220);
+    text-align: center;
+    margin: 0 0 25px 0;
+}
+
+/* ===================================
+   FORM STYLES
+   =================================== */
+
+.menu-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-row label {
+    font-family: 'Rajdhani', Arial, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    min-width: 60px;
+    text-align: left;
+    flex-shrink: 0;
+}
+
+.form-row input {
+    flex: 1;
+    background: rgb(30, 30, 50);
+    border: 1px solid rgb(80, 80, 120);
+    border-radius: 5px;
+    padding: 10px 12px;
+    font-family: 'Rajdhani', Arial, sans-serif;
+    font-size: 14px;
+    color: #fff;
+    transition: border-color 0.3s;
+    outline: none;
+    touch-action: manipulation; /* Enable touch on mobile */
+}
+
+.form-row input:focus {
+    border-color: rgb(100, 150, 255);
+    border-width: 2px;
+    padding: 9px 11px; /* Adjust for border width change */
+}
+
+.form-row input::placeholder {
+    color: rgb(120, 120, 150);
+}
+
+.email-hint {
+    font-family: 'Rajdhani', Arial, sans-serif;
+    font-size: 13px;
+    font-style: italic;
+    color: rgb(180, 200, 255);
+    text-align: center;
+    margin: -8px 0 0 0;
+}
+
+.error-message {
+    font-family: 'Rajdhani', Arial, sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: rgb(255, 100, 100);
+    text-align: center;
+    min-height: 16px;
+}
+
+/* ===================================
+   BUTTON STYLES
+   =================================== */
+
+.start-button {
+    background: rgb(50, 80, 200);
+    border: 2px solid rgb(80, 100, 220);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-family: 'Orbitron', Arial, sans-serif;
+    font-size: 17px;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    margin-top: 5px;
+    touch-action: manipulation; /* Enable touch on mobile */
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0.3); /* Visual feedback on tap */
+}
+
+/* Hover only on devices with mouse (not touch) */
+@media (hover: hover) and (pointer: fine) {
+    .start-button:hover {
+        background: rgb(80, 120, 255);
+        border-color: rgb(120, 150, 255);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(80, 120, 255, 0.4);
+    }
+}
+
+.start-button:active {
+    transform: translateY(0);
+    background: rgb(40, 70, 180) !important; /* Darker on press for mobile feedback */
+    border-color: rgb(100, 130, 255) !important;
+}
+
+.start-button:disabled,
+.start-button.cooldown {
+    background: rgb(100, 100, 100) !important; /* Gray */
+    border-color: rgb(120, 120, 120) !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* ===================================
+   PWA INSTALL SCREEN STYLES
+   =================================== */
+
+.pwa-info {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.pwa-info p {
+    font-family: 'Rajdhani', Arial, sans-serif;
+    font-size: 16px;
+    color: rgb(200, 200, 220);
+    margin: 0 0 15px 0;
+}
+
+.pwa-instructions {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+    text-align: left;
+}
+
+.pwa-instructions li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: rgba(50, 50, 80, 0.4);
+    border: 1px solid rgba(100, 120, 255, 0.3);
+    border-radius: 8px;
+    font-family: 'Rajdhani', Arial, sans-serif;
+    font-size: 14px;
+    color: rgb(200, 200, 220);
+}
+
+.pwa-instructions li:last-child {
+    margin-bottom: 0;
+}
+
+.pwa-step-icon {
+    font-size: 22px;
+    min-width: 30px;
+    text-align: center;
+}
+
+.pwa-error-message {
+    background: rgba(255, 50, 50, 0.15);
+    border: 1px solid rgb(255, 100, 100);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    font-family: 'Rajdhani', Arial, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    color: rgb(255, 120, 120);
+    text-align: center;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* ===================================
+   LEADERBOARD STYLES (for leaderboard.html)
+   =================================== */
+
+.search-input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    font-size: 1rem;
+    border: 2px solid #4CAF50;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-family: 'Rajdhani', Arial, sans-serif;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: #66BB6A;
+}
+
+.search-input::placeholder {
+    color: rgb(120, 120, 150);
+}
+
+.leaderboard-full {
+    max-height: 60vh;
+    overflow-y: auto;
+    margin: 20px 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #333;
+    font-family: 'Rajdhani', sans-serif;
+    transition: background 0.2s;
+}
+
+.leaderboard-row:hover {
+    background: rgba(100, 100, 255, 0.1);
+}
+
+.leaderboard-row.top-three {
+    background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
+    color: #000;
+    font-weight: bold;
+}
+
+.leaderboard-row .rank {
+    min-width: 50px;
+    font-weight: bold;
+}
+
+.leaderboard-row .nick {
+    flex: 1;
+    font-weight: bold;
+}
+
+.leaderboard-row .score {
+    min-width: 80px;
+    text-align: right;
+}
+
+.leaderboard-row .wave {
+    min-width: 50px;
+    text-align: right;
+    opacity: 0.8;
+}
+
+.leaderboard-row .time {
+    min-width: 70px;
+    text-align: right;
+    opacity: 0.7;
+}
+
+/* ===================================
+   RESPONSIVE - MOBILE
+   =================================== */
+
+@media (max-width: 768px) {
+    .menu-container {
+        padding: 25px 20px;
+        max-width: 500px;
+    }
+
+    .menu-title {
+        font-size: 32px;
+    }
+
+    .form-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .form-row label {
+        text-align: left;
+        min-width: auto;
+    }
+
+    .form-row input {
+        font-size: 16px; /* Prevent iOS zoom on focus */
+        padding: 12px;
+    }
+
+    .start-button {
+        font-size: 20px;
+        padding: 14px 20px;
+    }
+
+    .pwa-info p {
+        font-size: 15px;
+    }
+
+    .pwa-instructions li {
+        font-size: 13px;
+        padding: 10px;
+    }
+
+    .pwa-step-icon {
+        font-size: 20px;
+    }
+
+    .leaderboard-row {
+        font-size: 14px;
+        padding: 8px;
+    }
+
+    .leaderboard-row .rank {
+        min-width: 40px;
+    }
+
+    .leaderboard-row .score {
+        min-width: 60px;
+    }
+
+    .leaderboard-row .wave,
+    .leaderboard-row .time {
+        min-width: 45px;
+    }
+}
+
+/* ===================================
+   RESPONSIVE - KEYBOARD VISIBLE
+   =================================== */
+
+@media (max-height: 500px) {
+    .menu-container {
+        margin: 20px auto;
+    }
+
+    .menu-title {
+        font-size: 24px;
+        margin-bottom: 5px;
+    }
+
+    .menu-subtitle {
+        margin-bottom: 15px;
+    }
+}

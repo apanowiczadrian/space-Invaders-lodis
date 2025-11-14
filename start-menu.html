@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>LODIS GALAGA - Menu</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="shared/styles.css">
+
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="assets/spaceship.png">
+    <meta name="theme-color" content="#000000">
+
+    <!-- iOS/Android Full-Screen and Viewport Control -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+    <!-- Start Menu / Registration Form -->
+    <div id="start-menu" class="menu-overlay">
+        <div class="menu-container">
+            <h1 class="menu-title">LODIS - GALAGA</h1>
+
+            <br>
+
+            <!-- Form -->
+            <form id="start-form" class="menu-form">
+                <div class="form-row">
+                    <label for="nick-input">Nick:</label>
+                    <input
+                        id="nick-input"
+                        type="text"
+                        placeholder="Twój nick..."
+                        required
+                        minlength="2"
+                        maxlength="20"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                    >
+                </div>
+
+                <div class="form-row">
+                    <label for="email-input">Kontakt / Hasło:</label>
+                    <input
+                        id="email-input"
+                        type="text"
+                        placeholder="email tylko do kontatktu"
+                        maxlength="40"
+                        autocomplete="off"
+                        autocapitalize="off"
+                    >
+                </div>
+
+                <p class="email-hint">Podaj Email albo hasło do odebrania nagrody</p>
+
+                <div class="error-message" id="error-message"></div>
+
+                <button type="submit" id="start-button" class="start-button">START GAME</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Touch/Zoom Prevention -->
+    <script>
+        // Prevent pinch-to-zoom
+        document.addEventListener('touchmove', function (event) {
+            if (event.scale !== 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        // Prevent double-tap-to-zoom (except on form elements)
+        var lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            var now = (new Date()).getTime();
+            var target = event.target;
+
+            // Don't prevent default on form elements
+            var isFormElement = target.tagName === 'INPUT' ||
+                               target.tagName === 'BUTTON' ||
+                               target.tagName === 'TEXTAREA' ||
+                               target.tagName === 'SELECT' ||
+                               target.closest('.menu-overlay');
+
+            if (now - lastTouchEnd <= 300 && !isFormElement) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+
+    <!-- Main Logic -->
+    <script type="module">
+        import { isMobileDevice, isStandaloneMode, shouldShowPWAScreen } from './shared/pwa-detection.js';
+        import { savePlayerData, loadPlayerData, validatePlayerData } from './shared/player-data.js';
+        import { redirectToGame, redirectToPWA } from './shared/navigation.js';
+
+        // Initialize portrait warning
+        document.addEventListener('DOMContentLoaded', function() {
+            const nickInput = document.getElementById('nick-input');
+            const emailInput = document.getElementById('email-input');
+            const form = document.getElementById('start-form');
+            const errorMessage = document.getElementById('error-message');
+
+            // Load saved player data
+            const saved = loadPlayerData();
+            if (saved) {
+                if (saved.nick) nickInput.value = saved.nick;
+                if (saved.email) emailInput.value = saved.email;
+            }
+
+            // Form submission handler
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const nick = nickInput.value;
+                const email = emailInput.value;
+
+                // Validate input
+                const validation = validatePlayerData(nick, email);
+                if (!validation.valid) {
+                    errorMessage.textContent = validation.error;
+                    return;
+                }
+
+                // Clear error
+                errorMessage.textContent = '';
+
+                // Save to localStorage
+                savePlayerData(nick, email);
+
+                // Determine next page based on device
+                if (shouldShowPWAScreen()) {
+                    // Mobile browser (not PWA) → show PWA install screen
+                    redirectToPWA();
+                } else {
+                    // Desktop OR PWA → go directly to game
+                    redirectToGame();
+                }
+            });
+
+            // Auto-focus on nick input for desktop
+            if (window.innerWidth > 768) {
+                setTimeout(() => nickInput.focus(), 100);
+            }
+        });
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.error('❌ Service Worker registration failed:', error);
+                    });
+            });
+        } else {
+            console.warn('⚠️ Service Worker not supported in this browser');
+        }
+    </script>
+</body>
+</html>

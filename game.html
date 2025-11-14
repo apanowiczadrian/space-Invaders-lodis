@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>LODIS GALAGA</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="shared/styles.css">
+
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="assets/spaceship.png">
+    <meta name="theme-color" content="#000000">
+
+    <!-- iOS/Android Full-Screen and Viewport Control -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- p5.js -->
+    <script src="js/p5.min.js"></script>
+</head>
+<body>
+    <!-- Portrait Warning (loaded by sketch.js portrait detection) -->
+    <div id="portrait-warning">
+        <div class="rotation-icon">📱</div>
+        <h2 class="portrait-title">Obróć Urządzenie</h2>
+        <p class="portrait-text">Ta gra wymaga orientacji poziomej (landscape)</p>
+    </div>
+
+    <!-- Canvas created by p5.js -->
+
+    <!-- Touch/Zoom Prevention -->
+    <script>
+        // Prevent pinch-to-zoom
+        document.addEventListener('touchmove', function (event) {
+            if (event.scale !== 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        // Prevent double-tap-to-zoom (not on canvas)
+        var lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            var now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+
+    <!-- Game Initialization -->
+    <script type="module">
+        import { loadPlayerData, hasPlayerData } from './shared/player-data.js';
+        import { redirectToMenu } from './shared/navigation.js';
+
+        // Check for player data before loading game
+        window.addEventListener('DOMContentLoaded', function() {
+            // Verify player data exists
+            if (!hasPlayerData()) {
+                console.warn('⚠️ No player data found, redirecting to menu');
+                redirectToMenu();
+                return;
+            }
+
+            const playerData = loadPlayerData();
+            console.log('✅ Player data loaded for game:', playerData);
+
+            // Store player data globally for sketch.js
+            window.playerDataFromMenu = playerData;
+            window.isMenuReady = false; // Game page doesn't have HTML menu
+
+            // Wait for p5.js setup to complete, then auto-start game
+            // This event is dispatched by game.html after canvas is ready
+            window.addEventListener('canvasReady', function() {
+                console.log('✅ Canvas ready, starting game');
+
+                // Show canvas
+                const canvas = document.querySelector('canvas');
+                if (canvas) {
+                    canvas.classList.add('game-ready');
+                }
+
+                // Dispatch startGame event for sketch.js
+                setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('startGame', {
+                        detail: playerData
+                    }));
+                }, 100);
+            });
+        });
+    </script>
+
+    <!-- Load Game (sketch.js) -->
+    <script type="module" src="js/sketch.js"></script>
+</body>
+</html>
