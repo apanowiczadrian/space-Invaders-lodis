@@ -59,7 +59,7 @@ All Polish UI strings have been **manually crafted and polished** by the develop
 
 | Task | Primary Files | Key Functions/Lines |
 |------|--------------|---------------------|
-| **Fix PWA flow** | [index.html:231-297](index.html#L231-L297) | Device detection, installation screens |
+| **Fix PWA flow** | [pwa-install.html:252-257](pwa-install.html#L252-L257), [shared/pwa-detection.js](shared/pwa-detection.js) | Auto-trigger native prompt (3s), Opera detection, button states |
 | **Adjust difficulty** | [wavePatterns.js](js/config/wavePatterns.js) | Pattern configs, speed multipliers |
 | **Debug mobile crash** | [sketch.js:149-189](js/sketch.js#L149-L189) | Global error handlers |
 | **Leaderboard API** | [leaderboardAPI.js:9](js/utils/leaderboardAPI.js#L9) | `GOOGLE_SHEETS_ENDPOINT` |
@@ -261,13 +261,30 @@ const urlsToCache = [`${basePath}manifest.json`, ...];
 - ✅ HTTPS (or localhost/127.0.0.1)
 - ❌ Local IP (192.168.x.x) over HTTP = fails
 
-**Installation Flow** (Mobile only):
-1. User fills form → data saved to localStorage
-2. Shows platform-specific instructions (Android: 3-dot menu, iOS: share button 📤)
-3. Button validates PWA: 3 failed clicks → allows browser mode
-4. PWA launches → auto-starts with saved data
+**Installation Flow**:
 
-**Files**: [service-worker.js](service-worker.js), [manifest.json](manifest.json), [pwa-install.html](pwa-install.html)
+**Mobile Browser (enforced):**
+1. User opens index.html → auto-redirects to pwa-install.html
+2. Shows platform-specific instructions:
+   - **Chrome Mobile**: Android instructions (3-dot menu)
+   - **Opera Mobile**: Opera-specific instructions (3 kropki → Dodaj do → Ekran główny)
+   - **Safari iOS**: Share button 📤 instructions
+3. **Auto-trigger (Chromium only)**: Native install prompt shows automatically after 3s
+4. **Fallback button** (2 states):
+   - State 1: "Uruchomić grę bez PWA?" → 2s cooldown → State 2
+   - State 2: "Graję w niestabilną grę" → launches game
+5. If installed: Desktop auto-opens PWA, Mobile requires manual icon tap
+
+**Desktop:**
+- Skips PWA screen entirely (index.html → game.html or start-menu.html)
+
+**Auto-Trigger Details** ([pwa-install.html:252-257](pwa-install.html#L252-L257)):
+- Fires 3 seconds after page load
+- Only for Chromium browsers (Chrome, Opera, Edge, Samsung Internet)
+- Requires `beforeinstallprompt` event (HTTPS or localhost)
+- Safari iOS: No auto-trigger (manual instructions only)
+
+**Files**: [service-worker.js](service-worker.js), [manifest.json](manifest.json), [pwa-install.html](pwa-install.html), [shared/pwa-detection.js](shared/pwa-detection.js)
 
 **Keywords**: `#pwa #mobile #installation #offline #github-pages #universal-paths`
 
@@ -741,6 +758,7 @@ https://script.google.com/macros/s/AKfycbx18SZnL14VGzLQcZddjqMTcK1wE9DKCnn1N4CQX
 
 ### Version History
 
+- **2025-11-15 (later)**: PWA auto-trigger + Opera Mobile - native browser install prompt auto-fires after 3s (Chromium only), Opera Mobile instructions, 2-state button fallback, simplified PWA flow
 - **2025-11-15**: PWA universal paths system - dynamic basePath detection in service-worker.js, relative paths in manifest.json and HTML files, fixes GitHub Pages subdirectory installation
 - **2025-11-13**: Global error handling system, localStorage fallback for DebugLogger, mobile crash prevention
 - **2025-01-10**: Responsive game over screen, device fingerprinting, JSONL logging, debug server enhancements
