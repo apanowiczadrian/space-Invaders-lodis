@@ -49,6 +49,16 @@ export function isAndroid() {
 }
 
 /**
+ * Check if browser is Opera (desktop or mobile)
+ * @returns {boolean} True if Opera browser
+ */
+export function isOpera() {
+    const ua = navigator.userAgent;
+    // Modern Opera (v15+) uses 'OPR', older versions use 'Opera'
+    return ua.indexOf('OPR') !== -1 || ua.indexOf('Opera') !== -1;
+}
+
+/**
  * Get device type as string
  * @returns {string} 'desktop', 'android', or 'ios'
  */

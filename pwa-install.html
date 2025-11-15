@@ -93,9 +93,32 @@
                         </li>
                     </ol>
                 </div>
-                <div id="android-error-message" class="pwa-error-message" style="display: none;"></div>
                 <button id="android-done-button" class="start-button pwa-done-button">
-                    ✅ ZROBIŁEM, ROZPOCZNIJ GRĘ
+                    Uruchomić grę bez PWA?
+                </button>
+            </div>
+
+            <!-- Opera Mobile: Manual instructions -->
+            <div id="pwa-opera" style="display: none;">
+                <div class="pwa-info">
+                    <p>📱 Aby zainstalować grę na Opera Mobile:</p>
+                    <ol class="pwa-instructions">
+                        <li>
+                            <span class="pwa-step-icon">1️⃣</span>
+                            <span>Kliknij <strong>3 kropki</strong> w prawym górnym rogu przeglądarki</span>
+                        </li>
+                        <li>
+                            <span class="pwa-step-icon">2️⃣</span>
+                            <span>Wybierz <strong>"Dodaj do"</strong></span>
+                        </li>
+                        <li>
+                            <span class="pwa-step-icon">3️⃣</span>
+                            <span>Wybierz <strong>"Ekran główny"</strong></span>
+                        </li>
+                    </ol>
+                </div>
+                <button id="opera-done-button" class="start-button pwa-done-button">
+                    Uruchomić grę bez PWA?
                 </button>
             </div>
 
@@ -118,9 +141,8 @@
                         </li>
                     </ol>
                 </div>
-                <div id="ios-error-message" class="pwa-error-message" style="display: none;"></div>
                 <button id="ios-done-button" class="start-button pwa-done-button">
-                    ✅ ZROBIŁEM, ROZPOCZNIJ GRĘ
+                    Uruchomić grę bez PWA?
                 </button>
             </div>
         </div>
@@ -157,15 +179,11 @@
 
     <!-- Main Logic -->
     <script type="module">
-        import { isStandaloneMode, isIOS, isAndroid } from './shared/pwa-detection.js';
+        import { isStandaloneMode, isIOS, isAndroid, isOpera, isMobileDevice } from './shared/pwa-detection.js';
         import { redirectToGame, redirectToMenu } from './shared/navigation.js';
         import { hasPlayerData } from './shared/player-data.js';
 
-        // 3-click fallback mechanism state
-        let pwaClickAttempts = 0;
-        const MAX_ATTEMPTS = 3;
-
-        // Capture native PWA install prompt (Android Chrome)
+        // Capture native PWA install prompt (Chromium browsers: Chrome, Opera, Edge, Samsung Internet)
         let deferredPrompt = null;
 
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -180,20 +198,26 @@
         window.addEventListener('appinstalled', (e) => {
             console.log('✅ PWA installed successfully!');
             deferredPrompt = null;
-
-            // Auto-start game after installation
-            setTimeout(() => {
-                redirectToGame();
-            }, 500);
+            // Desktop: PWA opens automatically
+            // Mobile: User needs to manually open the installed icon
         });
 
         // Initialize PWA prompt
         document.addEventListener('DOMContentLoaded', function() {
             initPWAPrompt();
+
+            // Auto-trigger native install prompt after 3s (Chromium browsers only)
+            setTimeout(() => {
+                if (deferredPrompt && !isStandaloneMode()) {
+                    console.log('🚀 Auto-triggering native PWA install prompt after 3s...');
+                    triggerNativeInstallPrompt();
+                }
+            }, 3000);
         });
 
         function initPWAPrompt() {
             const androidDiv = document.getElementById('pwa-android');
+            const operaDiv = document.getElementById('pwa-opera');
             const iosDiv = document.getElementById('pwa-ios');
 
             // Check if already running in standalone mode (PWA already installed)
@@ -208,6 +232,15 @@
                 // iOS - show manual instructions
                 iosDiv.style.display = 'block';
                 document.getElementById('ios-done-button').addEventListener('click', handlePWADoneClick);
+            } else if (isOpera() && isMobileDevice()) {
+                // Opera Mobile - show Opera-specific instructions
+                operaDiv.style.display = 'block';
+                document.getElementById('opera-done-button').addEventListener('click', handlePWADoneClick);
+
+                // Trigger native Opera install prompt if available (Opera is Chromium-based)
+                if (deferredPrompt) {
+                    triggerNativeInstallPrompt();
+                }
             } else if (isAndroid()) {
                 // Android - show manual instructions
                 androidDiv.style.display = 'block';
@@ -240,13 +273,7 @@
 
                 if (outcome === 'accepted') {
                     console.log('✅ PWA installation accepted');
-                    // Hide error messages if any
-                    document.getElementById('android-error-message').style.display = 'none';
-
-                    // Wait a bit for installation to complete, then auto-start
-                    setTimeout(() => {
-                        redirectToGame();
-                    }, 1000);
+                    console.log('ℹ️ Desktop: PWA will auto-open | Mobile: Find app icon on home screen');
                 } else {
                     console.log('❌ PWA installation dismissed');
                 }
@@ -261,75 +288,47 @@
         function handlePWADoneClick(event) {
             // Determine which button was clicked
             const isIOSDevice = isIOS();
-            const doneButton = isIOSDevice ?
-                document.getElementById('ios-done-button') :
-                document.getElementById('android-done-button');
+            const isOperaDevice = isOpera() && isMobileDevice();
+
+            let doneButton;
+            if (isIOSDevice) {
+                doneButton = document.getElementById('ios-done-button');
+            } else if (isOperaDevice) {
+                doneButton = document.getElementById('opera-done-button');
+            } else {
+                doneButton = document.getElementById('android-done-button');
+            }
 
             // Check if button is in cooldown (disabled)
             if (doneButton.disabled) {
                 return; // Ignore clicks during cooldown
             }
 
-            // Mark that user has seen PWA screen (session flag to prevent redirect loop)
-            sessionStorage.setItem('pwaScreenSeen', 'true');
+            // Check current button state
+            const currentText = doneButton.textContent.trim();
 
-            // Check if PWA is installed
-            if (isStandaloneMode()) {
-                // PWA detected - check localStorage and redirect accordingly
+            if (currentText === 'Uruchomić grę bez PWA?') {
+                // State 1 → State 2: Apply cooldown and change to second state
+                doneButton.disabled = true;
+
+                setTimeout(() => {
+                    doneButton.textContent = 'Graję w niestabilną grę';
+                    doneButton.style.background = 'rgb(200, 80, 50)';
+                    doneButton.style.borderColor = 'rgb(220, 100, 80)';
+                    doneButton.disabled = false;
+                }, 2000); // 2s cooldown
+            } else if (currentText === 'Graję w niestabilną grę') {
+                // State 2 → Launch game
+                sessionStorage.setItem('pwaScreenSeen', 'true');
+
                 if (hasPlayerData()) {
-                    console.log('→ PWA detected, player data exists → redirecting to game');
+                    console.log('→ Launching game without PWA, player data exists');
                     redirectToGame();
                 } else {
-                    console.log('→ PWA detected, no player data → redirecting to menu');
+                    console.log('→ Launching game without PWA, no player data');
                     redirectToMenu();
                 }
-                return;
             }
-
-            // PWA not detected - increment attempt counter
-            pwaClickAttempts++;
-
-            // Get error message container
-            const errorContainer = isIOSDevice ?
-                document.getElementById('ios-error-message') :
-                document.getElementById('android-error-message');
-
-            // Show error message based on attempt count
-            if (pwaClickAttempts === 1) {
-                errorContainer.textContent = '❌ PWA nie wykryto! Sprawdź czy uruchomiłeś grę z ekranu głównego.';
-                errorContainer.style.display = 'block';
-            } else if (pwaClickAttempts === 2) {
-                errorContainer.textContent = '❌ Nadal brak PWA! Upewnij się że otworzyłeś ikonę z ekranu głównego.';
-                errorContainer.style.display = 'block';
-            } else if (pwaClickAttempts >= MAX_ATTEMPTS) {
-                // After 3 attempts - change button to fallback mode
-                errorContainer.style.display = 'none';
-                doneButton.textContent = '⚠️ GRAJ BEZ PWA (niestabilna wersja)';
-                doneButton.style.background = 'rgb(200, 80, 50)';
-                doneButton.style.borderColor = 'rgb(220, 100, 80)';
-
-                // Remove old listener and add new one that checks localStorage
-                doneButton.removeEventListener('click', handlePWADoneClick);
-                doneButton.addEventListener('click', () => {
-                    // Mark that user has seen PWA screen (session flag)
-                    sessionStorage.setItem('pwaScreenSeen', 'true');
-
-                    if (hasPlayerData()) {
-                        console.log('→ Fallback mode, player data exists → redirecting to game');
-                        redirectToGame();
-                    } else {
-                        console.log('→ Fallback mode, no player data → redirecting to menu');
-                        redirectToMenu();
-                    }
-                });
-                return; // No cooldown for final fallback state
-            }
-
-            // Apply 3-second cooldown (only for error states)
-            doneButton.disabled = true;
-            setTimeout(() => {
-                doneButton.disabled = false;
-            }, 3000);
         }
     </script>
 </body>
