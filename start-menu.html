@@ -95,9 +95,8 @@
 
     <!-- Main Logic -->
     <script type="module">
-        import { isMobileDevice, isStandaloneMode, shouldShowPWAScreen } from './shared/pwa-detection.js';
         import { savePlayerData, loadPlayerData, validatePlayerData } from './shared/player-data.js';
-        import { redirectToGame, redirectToPWA } from './shared/navigation.js';
+        import { redirectToGame } from './shared/navigation.js';
 
         // Initialize portrait warning
         document.addEventListener('DOMContentLoaded', function() {
@@ -133,14 +132,8 @@
                 // Save to localStorage
                 savePlayerData(nick, email);
 
-                // Determine next page based on device
-                if (shouldShowPWAScreen()) {
-                    // Mobile browser (not PWA) → show PWA install screen
-                    redirectToPWA();
-                } else {
-                    // Desktop OR PWA → go directly to game
-                    redirectToGame();
-                }
+                // Always redirect to game (user already saw PWA screen if needed)
+                redirectToGame();
             });
 
             // Auto-focus on nick input for desktop
