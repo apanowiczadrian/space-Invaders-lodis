@@ -20,7 +20,7 @@
       "purpose": "any"
     }
   ],
-  "start_url": "/",
+  "start_url": "/game.html",
   "display": "fullscreen",
   "orientation": "landscape",
   "theme_color": "#000000",
