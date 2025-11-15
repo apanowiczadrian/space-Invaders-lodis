@@ -55,9 +55,18 @@
     <script type="module">
         import { loadPlayerData, hasPlayerData } from './shared/player-data.js';
         import { redirectToMenu } from './shared/navigation.js';
+        import { isMobileDevice, isStandaloneMode } from './shared/pwa-detection.js';
 
         // Check for player data before loading game
         window.addEventListener('DOMContentLoaded', function() {
+            // SECURITY: Prevent direct access on mobile browser (must go through PWA screen first)
+            const pwaScreenSeen = sessionStorage.getItem('pwaScreenSeen');
+            if (isMobileDevice() && !isStandaloneMode() && !pwaScreenSeen) {
+                console.warn('⚠️ Mobile browser detected, PWA screen not seen - redirecting to index');
+                window.location.replace('index.html');
+                return;
+            }
+
             // Verify player data exists
             if (!hasPlayerData()) {
                 console.warn('⚠️ No player data found, redirecting to menu');

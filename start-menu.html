@@ -95,12 +95,20 @@
 
     <!-- Main Logic -->
     <script type="module">
-        import { isMobileDevice, isStandaloneMode, shouldShowPWAScreen } from './shared/pwa-detection.js';
         import { savePlayerData, loadPlayerData, validatePlayerData } from './shared/player-data.js';
-        import { redirectToGame, redirectToPWA } from './shared/navigation.js';
+        import { redirectToGame } from './shared/navigation.js';
+        import { isMobileDevice, isStandaloneMode } from './shared/pwa-detection.js';
 
         // Initialize portrait warning
         document.addEventListener('DOMContentLoaded', function() {
+            // SECURITY: Prevent direct access on mobile browser (must go through PWA screen first)
+            const pwaScreenSeen = sessionStorage.getItem('pwaScreenSeen');
+            if (isMobileDevice() && !isStandaloneMode() && !pwaScreenSeen) {
+                console.warn('⚠️ Mobile browser detected, PWA screen not seen - redirecting to index');
+                window.location.replace('index.html');
+                return;
+            }
+
             const nickInput = document.getElementById('nick-input');
             const emailInput = document.getElementById('email-input');
             const form = document.getElementById('start-form');
@@ -133,14 +141,8 @@
                 // Save to localStorage
                 savePlayerData(nick, email);
 
-                // Determine next page based on device
-                if (shouldShowPWAScreen()) {
-                    // Mobile browser (not PWA) → show PWA install screen
-                    redirectToPWA();
-                } else {
-                    // Desktop OR PWA → go directly to game
-                    redirectToGame();
-                }
+                // Always redirect to game (user already saw PWA screen if needed)
+                redirectToGame();
             });
 
             // Auto-focus on nick input for desktop

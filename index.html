@@ -57,31 +57,39 @@
     <!-- Immediate Redirect Logic -->
     <script type="module">
         import { hasPlayerData } from './shared/player-data.js';
-        import { shouldShowPWAScreen } from './shared/pwa-detection.js';
+        import { isMobileDevice, isStandaloneMode } from './shared/pwa-detection.js';
         import { redirectToMenu, redirectToPWA, redirectToGame } from './shared/navigation.js';
 
         // Perform redirect immediately
         (function() {
             console.log('🔄 index.html: Determining redirect path...');
 
-            // Check if player has registered
-            if (!hasPlayerData()) {
-                // No player data → go to registration form
-                console.log('→ Redirecting to start-menu.html (no player data)');
-                redirectToMenu();
+            // 1. PWA mode (standalone) → skip PWA screen, check localStorage
+            if (isStandaloneMode()) {
+                if (!hasPlayerData()) {
+                    console.log('→ Redirecting to start-menu.html (PWA, no player data)');
+                    redirectToMenu();
+                    return;
+                }
+                console.log('→ Redirecting to game.html (PWA, has player data)');
+                redirectToGame();
                 return;
             }
 
-            // Player data exists → check if should show PWA screen
-            if (shouldShowPWAScreen()) {
-                // Mobile browser (not PWA) → show PWA install instructions
+            // 2. Mobile browser (not PWA) → ALWAYS show PWA screen first
+            if (isMobileDevice()) {
                 console.log('→ Redirecting to pwa-install.html (mobile browser)');
                 redirectToPWA();
                 return;
             }
 
-            // Desktop OR PWA → start game directly
-            console.log('→ Redirecting to game.html (desktop or PWA)');
+            // 3. Desktop → skip PWA screen, check localStorage
+            if (!hasPlayerData()) {
+                console.log('→ Redirecting to start-menu.html (desktop, no player data)');
+                redirectToMenu();
+                return;
+            }
+            console.log('→ Redirecting to game.html (desktop, has player data)');
             redirectToGame();
         })();
     </script>

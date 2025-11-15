@@ -158,7 +158,8 @@
     <!-- Main Logic -->
     <script type="module">
         import { isStandaloneMode, isIOS, isAndroid } from './shared/pwa-detection.js';
-        import { redirectToGame } from './shared/navigation.js';
+        import { redirectToGame, redirectToMenu } from './shared/navigation.js';
+        import { hasPlayerData } from './shared/player-data.js';
 
         // 3-click fallback mechanism state
         let pwaClickAttempts = 0;
@@ -269,10 +270,19 @@
                 return; // Ignore clicks during cooldown
             }
 
+            // Mark that user has seen PWA screen (session flag to prevent redirect loop)
+            sessionStorage.setItem('pwaScreenSeen', 'true');
+
             // Check if PWA is installed
             if (isStandaloneMode()) {
-                // PWA detected - start game (no cooldown needed)
-                redirectToGame();
+                // PWA detected - check localStorage and redirect accordingly
+                if (hasPlayerData()) {
+                    console.log('→ PWA detected, player data exists → redirecting to game');
+                    redirectToGame();
+                } else {
+                    console.log('→ PWA detected, no player data → redirecting to menu');
+                    redirectToMenu();
+                }
                 return;
             }
 
@@ -298,9 +308,20 @@
                 doneButton.style.background = 'rgb(200, 80, 50)';
                 doneButton.style.borderColor = 'rgb(220, 100, 80)';
 
-                // Remove old listener and add new one that starts game immediately
+                // Remove old listener and add new one that checks localStorage
                 doneButton.removeEventListener('click', handlePWADoneClick);
-                doneButton.addEventListener('click', () => redirectToGame());
+                doneButton.addEventListener('click', () => {
+                    // Mark that user has seen PWA screen (session flag)
+                    sessionStorage.setItem('pwaScreenSeen', 'true');
+
+                    if (hasPlayerData()) {
+                        console.log('→ Fallback mode, player data exists → redirecting to game');
+                        redirectToGame();
+                    } else {
+                        console.log('→ Fallback mode, no player data → redirecting to menu');
+                        redirectToMenu();
+                    }
+                });
                 return; // No cooldown for final fallback state
             }
 
