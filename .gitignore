@@ -7,3 +7,5 @@ newImg/
 
 # Node modules (debugging server)
 debugging/node_modules/
+debugging/logs/
+

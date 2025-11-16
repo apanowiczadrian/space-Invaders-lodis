@@ -72,8 +72,12 @@ export class ScoreManager {
         }
     }
 
+    // DEPRECATED: Use getTopScoresUniqueNicks() instead
     // Get top N scores (from online or localStorage)
+    // This method does NOT deduplicate by nick
     async getTopScores(limit = 4) {
+        console.warn('⚠️ getTopScores() is deprecated, use getTopScoresUniqueNicks() instead');
+
         if (!this.useOnlineLeaderboard) {
             // Fallback to localStorage (filter out 0 scores)
             const scores = this.getLocalScores();
@@ -86,8 +90,7 @@ export class ScoreManager {
 
             if (onlineScores && onlineScores.length > 0) {
                 // Filter out 0 scores (shouldn't happen with server-side filtering, but be safe)
-                this.onlineScoresCache = onlineScores.filter(s => s.score > 0);
-                return this.onlineScoresCache;
+                return onlineScores.filter(s => s.score > 0);
             }
         } catch (error) {
             console.error('Failed to fetch online scores, using local:', error);
@@ -98,50 +101,76 @@ export class ScoreManager {
         return localScores.filter(s => s.score > 0).slice(0, limit);
     }
 
-    // Get top scores synchronously (for immediate rendering)
-    // Returns merged scores (local + online cache) for most accurate leaderboard
-    getTopScoresSync(limit = 4) {
-        const localScores = this.getLocalScores();
+    // Get top N scores with unique nicks (async version)
+    // Returns ONLY Google Sheets data (no localStorage), deduplicated by nick
+    // Each player appears only once with their best score
+    async getTopScoresUniqueNicks(limit = 4) {
+        if (!this.useOnlineLeaderboard) {
+            console.error('⚠️ Online leaderboard is disabled');
+            return [];
+        }
 
-        // If we have online cache, merge with local scores
-        if (this.onlineScoresCache && this.onlineScoresCache.length > 0) {
-            // Create a map to deduplicate by nick+score+time
-            const scoresMap = new Map();
+        try {
+            // Fetch large dataset to ensure we have enough unique players
+            // (e.g., if top 100 has duplicates, we need more data to get 100 unique nicks)
+            const fetchLimit = Math.max(limit * 3, 300);
+            const onlineScores = await fetchTopScores(fetchLimit);
 
-            // Add local scores first (highest priority - most up-to-date)
-            localScores.forEach(score => {
-                // Filter out scores of 0 or less
-                if (score.score > 0) {
-                    const key = `${score.nick}_${score.score}_${score.time}`;
-                    scoresMap.set(key, score);
+            if (!onlineScores || onlineScores.length === 0) {
+                console.error('❌ No online scores available');
+                return [];
+            }
+
+            // Deduplicate by nick - keep only best score per player
+            const uniqueScoresMap = new Map();
+
+            onlineScores.forEach(score => {
+                if (score.score <= 0) return; // Skip invalid scores
+
+                const nick = score.nick;
+                const existing = uniqueScoresMap.get(nick);
+
+                // Keep this score if:
+                // 1. Player not in map yet, OR
+                // 2. This score is higher, OR
+                // 3. Same score but faster time
+                if (!existing ||
+                    score.score > existing.score ||
+                    (score.score === existing.score && score.time < existing.time)) {
+                    uniqueScoresMap.set(nick, score);
                 }
             });
 
-            // Add online scores (won't overwrite local duplicates)
-            this.onlineScoresCache.forEach(score => {
-                // Filter out scores of 0 or less
-                if (score.score > 0) {
-                    const key = `${score.nick}_${score.score}_${score.time}`;
-                    if (!scoresMap.has(key)) {
-                        scoresMap.set(key, score);
-                    }
-                }
-            });
-
-            // Convert back to array and sort
-            const mergedScores = Array.from(scoresMap.values());
-            mergedScores.sort((a, b) => {
+            // Convert to array and sort
+            const uniqueScores = Array.from(uniqueScoresMap.values());
+            uniqueScores.sort((a, b) => {
                 if (b.score !== a.score) {
                     return b.score - a.score;
                 }
                 return a.time - b.time;
             });
 
-            return mergedScores.slice(0, limit);
+            // Update cache with deduplicated data
+            this.onlineScoresCache = uniqueScores;
+
+            return uniqueScores.slice(0, limit);
+        } catch (error) {
+            console.error('❌ Failed to fetch unique nick scores:', error);
+            return [];
+        }
+    }
+
+    // Get top N scores with unique nicks (synchronous version)
+    // Uses cached data from previous async call
+    // Returns ONLY Google Sheets data (no localStorage), deduplicated by nick
+    getTopScoresUniqueNicksSync(limit = 4) {
+        if (!this.onlineScoresCache || this.onlineScoresCache.length === 0) {
+            console.warn('⚠️ No cached online scores available');
+            return [];
         }
 
-        // Fallback to local only (filter out 0 scores)
-        return localScores.filter(score => score.score > 0).slice(0, limit);
+        // Cache already contains deduplicated data from getTopScoresUniqueNicks()
+        return this.onlineScoresCache.slice(0, limit);
     }
 
     // Clear all scores (for testing)
@@ -149,15 +178,9 @@ export class ScoreManager {
         localStorage.removeItem(this.storageKey);
     }
 
-    // Check if a score makes it to top N
-    isTopScore(score, limit = 4) {
-        const topScores = this.getTopScores(limit);
-        if (topScores.length < limit) return true;
-        return score > topScores[topScores.length - 1].score;
-    }
-
     // Find player's rank in leaderboard (1-indexed)
     // Returns object with rank and score data, or null if not found
+    // Uses deduplicated online leaderboard (same data as displayed)
     findPlayerRank(playerData, score, time) {
         // Validate playerData
         if (!playerData || typeof playerData !== 'object' || !playerData.nick) {
@@ -170,61 +193,53 @@ export class ScoreManager {
             return null;
         }
 
-        // ALWAYS use localStorage for finding player rank (most up-to-date)
-        // Online cache might not have the latest score yet
-        const scores = this.getLocalScores();
+        // Use online cache (deduplicated by nick from getTopScoresUniqueNicks)
+        // This ensures rank matches what's displayed in leaderboard
+        if (!this.onlineScoresCache || this.onlineScoresCache.length === 0) {
+            console.warn('⚠️ No online scores cache available for ranking');
+            return null;
+        }
 
-        // Filter out scores of 0 or less before finding rank
-        const validScores = scores.filter(s => s.score > 0);
+        // Find player's best score in the deduplicated leaderboard
+        const playerNick = playerData.nick;
+        let playerRankIndex = -1;
+        let playerScoreData = null;
 
-        // IMPORTANT: Sort scores to ensure correct ranking
-        // (in case localStorage was manually edited or corrupted)
-        validScores.sort((a, b) => {
-            if (b.score !== a.score) {
-                return b.score - a.score;
-            }
-            return a.time - b.time;
-        });
+        for (let i = 0; i < this.onlineScoresCache.length; i++) {
+            const scoreData = this.onlineScoresCache[i];
 
-        // Find ALL matching entries for this player with this score
-        let bestMatch = null;
-        let bestMatchIndex = -1;
-        let newestTimestamp = 0;
-
-        for (let i = 0; i < validScores.length; i++) {
-            const scoreData = validScores[i];
-            if (scoreData.nick === playerData.nick &&
-                Math.abs(scoreData.score - score) < 1 &&
-                Math.abs(Math.floor(scoreData.time) - Math.floor(time)) < 1) {
-
-                // If this match has a newer timestamp, use it instead
-                if (scoreData.timestamp > newestTimestamp) {
-                    newestTimestamp = scoreData.timestamp;
-                    bestMatch = scoreData;
-                    bestMatchIndex = i;
-                }
+            // Find this player's entry (deduplicated cache has only one entry per nick)
+            if (scoreData.nick === playerNick) {
+                playerRankIndex = i;
+                playerScoreData = scoreData;
+                break;
             }
         }
 
-        if (bestMatch) {
+        if (playerRankIndex !== -1 && playerScoreData) {
             return {
-                rank: bestMatchIndex + 1, // 1-indexed
-                data: bestMatch
+                rank: playerRankIndex + 1, // 1-indexed
+                data: playerScoreData
             };
         }
 
+        // Player not found in online leaderboard
+        // This can happen if:
+        // 1. Score hasn't been synced to Google Sheets yet
+        // 2. Player's score is outside top N fetched scores
+        console.log(`ℹ️ Player "${playerNick}" not found in online leaderboard`);
         return null;
     }
 
     // Preload online leaderboard (call on game start)
+    // Uses deduplicated unique nicks method
     async preloadLeaderboard(limit = 10) {
         if (!this.useOnlineLeaderboard) return;
 
         try {
-            const scores = await fetchTopScores(limit);
-            if (scores && scores.length > 0) {
-                this.onlineScoresCache = scores;
-            }
+            // Use the new deduplicated method
+            await this.getTopScoresUniqueNicks(limit);
+            console.log('✅ Leaderboard preloaded with unique nicks');
         } catch (error) {
             console.error('Failed to preload leaderboard:', error);
         }

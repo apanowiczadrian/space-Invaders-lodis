@@ -690,7 +690,8 @@ function drawGameOverScreen(deltaTime) {
         }
 
         // Get top scores for leaderboard (synchronous - uses cache)
-        const topScores = game.scoreManager.getTopScoresSync(4);
+        // Uses deduplicated unique nicks (one entry per player)
+        const topScores = game.scoreManager.getTopScoresUniqueNicksSync(4);
 
         // Find player's rank in full leaderboard
         const playerRank = game.scoreManager.findPlayerRank(

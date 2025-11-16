@@ -138,7 +138,8 @@
 
             try {
                 console.log('📊 Loading leaderboard...');
-                const scores = await scoreManager.getTopScores(100);
+                // Use deduplicated unique nicks (only Google Sheets, no localStorage)
+                const scores = await scoreManager.getTopScoresUniqueNicks(100);
 
                 // Hide loading
                 loadingEl.style.display = 'none';
@@ -154,7 +155,7 @@
                 displayScores(scores);
                 listEl.style.display = 'block';
 
-                console.log(`✅ Loaded ${scores.length} scores`);
+                console.log(`✅ Loaded ${scores.length} unique players`);
             } catch (error) {
                 console.error('❌ Error loading leaderboard:', error);
                 loadingEl.style.display = 'none';
