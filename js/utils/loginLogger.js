@@ -15,22 +15,26 @@ const GOOGLE_SHEETS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbx18SZnL
 const LOGIN_LOGGING_ENABLED = true;
 
 /**
- * Send login data to Google Sheets (fire-and-forget)
+ * Send login data to Google Sheets with timeout
  *
  * @param {Object} playerData - Player data {nick, email}
- * @returns {Promise<boolean>} - Resolves immediately, logs in background
+ * @param {number} timeout - Max wait time in ms (default: 2000ms)
+ * @returns {Promise<boolean>} - Resolves when sent or timeout reached
  */
-export async function sendLoginToGoogleSheets(playerData) {
-    // Fire-and-forget: return immediately, send in background
-    const promise = sendLoginInBackground(playerData);
+export async function sendLoginToGoogleSheets(playerData, timeout = 2000) {
+    try {
+        // Race between actual send and timeout
+        const sendPromise = sendLoginInBackground(playerData);
+        const timeoutPromise = new Promise(resolve =>
+            setTimeout(() => resolve(false), timeout)
+        );
 
-    // Don't wait for completion
-    promise.catch(error => {
-        // Silent failure - don't block user
-        console.error('❌ Login logging failed (non-blocking):', error);
-    });
-
-    return Promise.resolve(true);
+        const result = await Promise.race([sendPromise, timeoutPromise]);
+        return result;
+    } catch (error) {
+        console.error('❌ Login logging failed:', error);
+        return false;
+    }
 }
 
 /**
@@ -78,9 +82,9 @@ async function sendLoginInBackground(playerData) {
             timestamp: Date.now()
         };
 
-        // Send POST request with 5s timeout
+        // Send POST request with 2s timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
 
         try {
             const response = await fetch(GOOGLE_SHEETS_ENDPOINT, {
@@ -104,7 +108,7 @@ async function sendLoginInBackground(playerData) {
             clearTimeout(timeoutId);
 
             if (fetchError.name === 'AbortError') {
-                console.error('❌ Login logging timeout after 5s');
+                console.error('❌ Login logging timeout after 2s');
             } else {
                 console.error('❌ Error sending login log:', fetchError);
             }

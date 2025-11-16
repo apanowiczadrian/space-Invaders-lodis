@@ -123,7 +123,7 @@
             }
 
             // Form submission handler
-            form.addEventListener('submit', function(e) {
+            form.addEventListener('submit', async function(e) {
                 e.preventDefault();
 
                 const nick = nickInput.value;
@@ -142,8 +142,8 @@
                 // Save to localStorage
                 savePlayerData(nick, email);
 
-                // Log login to Google Sheets (fire-and-forget, non-blocking)
-                sendLoginToGoogleSheets({ nick, email });
+                // Log login to Google Sheets (wait max 2s before redirect)
+                await sendLoginToGoogleSheets({ nick, email });
 
                 // Redirect to tutorial (first-time player)
                 redirectToTutorial();
