@@ -1,7 +1,7 @@
 ---
 project: LODIS GALAGA
 version: 2.0.0
-last_updated: 2025-11-15
+last_updated: 2025-11-16
 ai_assistant: Claude Code
 author: Adrian Apanowicz
 license: MIT
@@ -265,24 +265,24 @@ const urlsToCache = [`${basePath}manifest.json`, ...];
 
 **Mobile Browser (enforced):**
 1. User opens index.html → auto-redirects to pwa-install.html
-2. Shows platform-specific instructions:
-   - **Chrome Mobile**: Android instructions (3-dot menu)
-   - **Opera Mobile**: Opera-specific instructions (3 kropki → Dodaj do → Ekran główny)
-   - **Safari iOS**: Share button 📤 instructions
-3. **Auto-trigger (Chromium only)**: Native install prompt shows automatically after 3s
-4. **Fallback button** (2 states):
-   - State 1: "Uruchomić grę bez PWA?" → 2s cooldown → State 2
-   - State 2: "Graję w niestabilną grę" → launches game
-5. If installed: Desktop auto-opens PWA, Mobile requires manual icon tap
+2. Shows platform-specific instructions (all end with 🚀 "Uruchom grę z pulpitu"):
+   - **Android**: 4 steps (menu → dodaj do ekranu → info PWA → uruchom z pulpitu)
+   - **Opera Mobile**: 6 steps (3 kropki → dodaj do → ekran główny → info PWA → ostrzeżenie o przeglądarce → uruchom z pulpitu)
+   - **iOS**: 4 steps (udostępnij 📤 → dodaj do ekranu → potwierdź → uruchom z pulpitu)
+3. **3-State Button System**:
+   - **State 1**: "Dodaj grę do ekranu" - triggers native install prompt (Chromium only, requires user gesture)
+   - **State 2**: "Uruchomić grę bez PWA?" - 2s cooldown before enabling State 3
+   - **State 3**: "Graję w niestabilną grę" - launches game/menu based on localStorage
+4. If installed: Desktop auto-opens PWA, Mobile requires manual icon tap
 
 **Desktop:**
 - Skips PWA screen entirely (index.html → game.html or start-menu.html)
 
-**Auto-Trigger Details** ([pwa-install.html:252-257](pwa-install.html#L252-L257)):
-- Fires 3 seconds after page load
-- Only for Chromium browsers (Chrome, Opera, Edge, Samsung Internet)
-- Requires `beforeinstallprompt` event (HTTPS or localhost)
-- Safari iOS: No auto-trigger (manual instructions only)
+**Native Install Prompt** (Chromium browsers only):
+- Captured via `beforeinstallprompt` event (requires HTTPS or localhost)
+- Button triggers prompt on click (user gesture required by browser security)
+- If dismissed or unavailable: button shows State 2 fallback
+- Safari iOS: No native prompt support (manual instructions only)
 
 **Files**: [service-worker.js](service-worker.js), [manifest.json](manifest.json), [pwa-install.html](pwa-install.html), [shared/pwa-detection.js](shared/pwa-detection.js)
 
@@ -758,7 +758,8 @@ https://script.google.com/macros/s/AKfycbx18SZnL14VGzLQcZddjqMTcK1wE9DKCnn1N4CQX
 
 ### Version History
 
-- **2025-11-15 (later)**: PWA auto-trigger + Opera Mobile - native browser install prompt auto-fires after 3s (Chromium only), Opera Mobile instructions, 2-state button fallback, simplified PWA flow
+- **2025-11-16**: PWA installation instructions enhancement - added final step "🚀 Uruchom grę z pulpitu" to all platforms (Android, Opera, iOS), 3-state button system (native prompt trigger → fallback warning → launch), user gesture requirement for native install prompt
+- **2025-11-15 (later)**: PWA Opera Mobile support - Opera browser detection, platform-specific installation instructions, native browser install prompt with user gesture, toast notifications for installation feedback
 - **2025-11-15**: PWA universal paths system - dynamic basePath detection in service-worker.js, relative paths in manifest.json and HTML files, fixes GitHub Pages subdirectory installation
 - **2025-11-13**: Global error handling system, localStorage fallback for DebugLogger, mobile crash prevention
 - **2025-01-10**: Responsive game over screen, device fingerprinting, JSONL logging, debug server enhancements
@@ -783,7 +784,7 @@ For quick searches (Ctrl+F or Claude):
 
 ---
 
-**Last Updated**: 2025-11-15
+**Last Updated**: 2025-11-16
 **Maintained By**: Adrian Apanowicz
 **AI Assistant**: Claude Code (Sonnet 4.5)
 **Full Documentation**: [knowledge/CLAUDE-old.md](knowledge/CLAUDE-old.md) (1396 lines, detailed reference)
