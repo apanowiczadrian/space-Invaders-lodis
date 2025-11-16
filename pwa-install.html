@@ -88,13 +88,13 @@
                             <span>Jest to potrzebne żeby <strong>gra</strong> była na pełnym ekranie, <strong>inaczej nie zadziała.</strong> to mechanizm "PWA"</span>
                         </li>
                         <li>
-                            <span class="pwa-step-icon">⚠️</span>
-                            <span> Użyj <strong>innej przeglądarki(np. chrome)</strong> jak nie działa <strong>dodanie do ekranu</strong></span>
+                            <span class="pwa-step-icon">🚀</span>
+                            <span><strong>Uruchom grę z pulpitu</strong></span>
                         </li>
                     </ol>
                 </div>
                 <button id="android-done-button" class="start-button pwa-done-button">
-                    Uruchomić grę bez PWA?
+                    Ładowanie...
                 </button>
             </div>
 
@@ -115,10 +115,22 @@
                             <span class="pwa-step-icon">3️⃣</span>
                             <span>Wybierz <strong>"Ekran główny"</strong></span>
                         </li>
+                        <li>
+                            <span class="pwa-step-icon">⁉️</span>
+                            <span>Jest to potrzebne żeby <strong>gra</strong> była na pełnym ekranie, <strong>inaczej nie zadziała.</strong> to mechanizm "PWA"</span>
+                        </li>
+                        <li>
+                            <span class="pwa-step-icon">⚠️</span>
+                            <span> Użyj <strong>innej przeglądarki(np. chrome)</strong> jak nie działa <strong>dodanie do ekranu</strong></span>
+                        </li>
+                        <li>
+                            <span class="pwa-step-icon">🚀</span>
+                            <span><strong>Uruchom grę z pulpitu</strong></span>
+                        </li>
                     </ol>
                 </div>
                 <button id="opera-done-button" class="start-button pwa-done-button">
-                    Uruchomić grę bez PWA?
+                    Ładowanie...
                 </button>
             </div>
 
@@ -138,6 +150,10 @@
                         <li>
                             <span class="pwa-step-icon">3️⃣</span>
                             <span>Potwierdź <strong>"Dodaj"</strong> ✅</span>
+                        </li>
+                        <li>
+                            <span class="pwa-step-icon">🚀</span>
+                            <span><strong>Uruchom grę z pulpitu</strong></span>
                         </li>
                     </ol>
                 </div>
@@ -192,6 +208,9 @@
             // Save the event for later use
             deferredPrompt = e;
             console.log('✅ PWA install prompt captured - ready to trigger on demand');
+
+            // Update button text to state 1
+            updateButtonText();
         });
 
         // Listen for successful PWA installation
@@ -202,17 +221,61 @@
             // Mobile: User needs to manually open the installed icon
         });
 
+        // Show toast notification (3s auto-hide)
+        function showToast(message, duration = 3000) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255, 150, 50, 0.95);
+                color: white;
+                padding: 15px 25px;
+                border-radius: 8px;
+                font-family: 'Rajdhani', Arial, sans-serif;
+                font-size: 16px;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                text-align: center;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), duration);
+        }
+
+        // Update button text based on deferredPrompt availability
+        function updateButtonText() {
+            if (deferredPrompt) {
+                // State 1: "Dodaj grę do ekranu" (Chromium browsers only)
+                const androidBtn = document.getElementById('android-done-button');
+                const operaBtn = document.getElementById('opera-done-button');
+
+                if (androidBtn && androidBtn.style.display !== 'none') {
+                    androidBtn.textContent = 'Dodaj grę do ekranu';
+                }
+                if (operaBtn && operaBtn.style.display !== 'none') {
+                    operaBtn.textContent = 'Dodaj grę do ekranu';
+                }
+            } else {
+                // State 2: "Uruchomić grę bez PWA?" (no beforeinstallprompt)
+                const androidBtn = document.getElementById('android-done-button');
+                const operaBtn = document.getElementById('opera-done-button');
+
+                if (androidBtn && androidBtn.style.display !== 'none') {
+                    androidBtn.textContent = 'Uruchomić grę bez PWA?';
+                }
+                if (operaBtn && operaBtn.style.display !== 'none') {
+                    operaBtn.textContent = 'Uruchomić grę bez PWA?';
+                }
+            }
+            // iOS always stays in state 2 (no beforeinstallprompt on Safari)
+        }
+
         // Initialize PWA prompt
         document.addEventListener('DOMContentLoaded', function() {
             initPWAPrompt();
-
-            // Auto-trigger native install prompt after 3s (Chromium browsers only)
-            setTimeout(() => {
-                if (deferredPrompt && !isStandaloneMode()) {
-                    console.log('🚀 Auto-triggering native PWA install prompt after 3s...');
-                    triggerNativeInstallPrompt();
-                }
-            }, 3000);
         });
 
         function initPWAPrompt() {
@@ -236,56 +299,21 @@
                 // Opera Mobile - show Opera-specific instructions
                 operaDiv.style.display = 'block';
                 document.getElementById('opera-done-button').addEventListener('click', handlePWADoneClick);
-
-                // Trigger native Opera install prompt if available (Opera is Chromium-based)
-                if (deferredPrompt) {
-                    triggerNativeInstallPrompt();
-                }
             } else if (isAndroid()) {
                 // Android - show manual instructions
                 androidDiv.style.display = 'block';
                 document.getElementById('android-done-button').addEventListener('click', handlePWADoneClick);
-
-                // Trigger native Chrome install prompt if available
-                if (deferredPrompt) {
-                    triggerNativeInstallPrompt();
-                }
             } else {
                 // Generic mobile (rare case)
                 androidDiv.style.display = 'block';
                 document.getElementById('android-done-button').addEventListener('click', handlePWADoneClick);
             }
+
+            // Update button text based on deferredPrompt availability
+            updateButtonText();
         }
 
-        async function triggerNativeInstallPrompt() {
-            if (!deferredPrompt) {
-                return;
-            }
-
-            try {
-                // Show native install prompt
-                console.log('🚀 Triggering native PWA install prompt...');
-                deferredPrompt.prompt();
-
-                // Wait for user response
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log(`👤 User response: ${outcome}`);
-
-                if (outcome === 'accepted') {
-                    console.log('✅ PWA installation accepted');
-                    console.log('ℹ️ Desktop: PWA will auto-open | Mobile: Find app icon on home screen');
-                } else {
-                    console.log('❌ PWA installation dismissed');
-                }
-
-                // Clear the deferredPrompt (can only be used once)
-                deferredPrompt = null;
-            } catch (error) {
-                console.error('Error triggering install prompt:', error);
-            }
-        }
-
-        function handlePWADoneClick(event) {
+        async function handlePWADoneClick(event) {
             // Determine which button was clicked
             const isIOSDevice = isIOS();
             const isOperaDevice = isOpera() && isMobileDevice();
@@ -307,8 +335,31 @@
             // Check current button state
             const currentText = doneButton.textContent.trim();
 
-            if (currentText === 'Uruchomić grę bez PWA?') {
-                // State 1 → State 2: Apply cooldown and change to second state
+            if (currentText === 'Dodaj grę do ekranu') {
+                // STATE 1 - Trigger native install prompt (user gesture!)
+                if (deferredPrompt) {
+                    try {
+                        await deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+
+                        if (outcome === 'accepted') {
+                            console.log('✅ PWA installation accepted');
+                            console.log('ℹ️ Desktop: PWA will auto-open | Mobile: Find app icon on home screen');
+                        } else {
+                            console.log('❌ PWA installation dismissed');
+                            // Show toast + go to state 2
+                            showToast('Zainstaluj manualnie zgodnie z instrukcjami powyżej', 3000);
+                            doneButton.textContent = 'Uruchomić grę bez PWA?';
+                        }
+                        deferredPrompt = null;
+                    } catch (error) {
+                        console.error('Install prompt error:', error);
+                        showToast('Zainstaluj manualnie zgodnie z instrukcjami powyżej', 3000);
+                        doneButton.textContent = 'Uruchomić grę bez PWA?';
+                    }
+                }
+            } else if (currentText === 'Uruchomić grę bez PWA?') {
+                // STATE 2 - Cooldown + change to state 3
                 doneButton.disabled = true;
 
                 setTimeout(() => {
@@ -318,7 +369,7 @@
                     doneButton.disabled = false;
                 }, 2000); // 2s cooldown
             } else if (currentText === 'Graję w niestabilną grę') {
-                // State 2 → Launch game
+                // STATE 3 - Launch game
                 sessionStorage.setItem('pwaScreenSeen', 'true');
 
                 if (hasPlayerData()) {
