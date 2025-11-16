@@ -368,27 +368,41 @@ const urlsToCache = [`${basePath}manifest.json`, ...];
 ### Leaderboard System
 <!-- SUBSECTION:leaderboard -->
 
-**Dual Storage**:
-- **Local**: localStorage (`spaceInvScores`, top 100)
-- **Online**: Google Sheets API with 60s cache
-- **Merge**: Deduplicates by `nick + score + time`
+**Data Storage**:
+- **Saving**: localStorage (`spaceInvScores`, top 100) + Google Sheets API
+- **Display**: Google Sheets API only (no localStorage fallback)
+- **Deduplication**: By nick only (one player = one entry with best score)
+- **Cache**: 60s for Google Sheets API requests
 
-**Display**: Top 4 on game over screen, current player highlighted in gold
+**Display Logic**:
+- Top 4 on game over screen, current player highlighted in gold
+- Top 100 on leaderboard.html page
+- Each player appears only once with their highest score
+- Ties broken by fastest time
 
 **API Usage**:
 ```javascript
-// Preload on game start (non-blocking)
+// Preload on game start (non-blocking, deduplicated by nick)
 await scoreManager.preloadLeaderboard(10);
 
 // Save score on game over (0 or negative NOT saved)
 scoreManager.saveScore(playerData, score, wave, time);
 
-// Get top scores (async)
-const scores = await scoreManager.getTopScores(4);
+// Get top scores with unique nicks (async) - RECOMMENDED
+const scores = await scoreManager.getTopScoresUniqueNicks(100);
 
-// Get top scores (sync, uses cache)
-const scores = scoreManager.getTopScoresSync(4);
+// Get top scores with unique nicks (sync, uses cache) - RECOMMENDED
+const scores = scoreManager.getTopScoresUniqueNicksSync(4);
+
+// DEPRECATED methods (use above instead):
+// const scores = await scoreManager.getTopScores(4);
+// const scores = scoreManager.getTopScoresSync(4);
 ```
+
+**Player Rank Logic**:
+- Uses same deduplicated data as leaderboard display
+- Prevents "congratulations" bug (showing wrong rank)
+- Returns null if player not in online leaderboard cache
 
 **Responsive Game Over Screen**:
 - **Small screens (vh ≤ 620)**: Side-by-side layout (button to right of leaderboard)
@@ -758,6 +772,7 @@ https://script.google.com/macros/s/AKfycbx18SZnL14VGzLQcZddjqMTcK1wE9DKCnn1N4CQX
 
 ### Version History
 
+- **2025-11-16 (later)**: Leaderboard deduplication system - unique nick-based leaderboard (one player = one entry with best score), fixed congratulations bug (rank calculation matches displayed data), display uses Google Sheets only (no localStorage), deprecated getTopScores/getTopScoresSync in favor of getTopScoresUniqueNicks/getTopScoresUniqueNicksSync
 - **2025-11-16**: PWA installation instructions enhancement - added final step "🚀 Uruchom grę z pulpitu" to all platforms (Android, Opera, iOS), 3-state button system (native prompt trigger → fallback warning → launch), user gesture requirement for native install prompt
 - **2025-11-15 (later)**: PWA Opera Mobile support - Opera browser detection, platform-specific installation instructions, native browser install prompt with user gesture, toast notifications for installation feedback
 - **2025-11-15**: PWA universal paths system - dynamic basePath detection in service-worker.js, relative paths in manifest.json and HTML files, fixes GitHub Pages subdirectory installation
