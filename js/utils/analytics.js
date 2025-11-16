@@ -17,7 +17,7 @@ const ANALYTICS_ENABLED = true;
 /**
  * Wykryj typ urządzenia
  */
-function detectDevice() {
+export function detectDevice() {
     const ua = navigator.userAgent;
     if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
         return 'Tablet';
@@ -31,7 +31,7 @@ function detectDevice() {
 /**
  * Wykryj przeglądarkę (prosty string)
  */
-function detectBrowser() {
+export function detectBrowser() {
     const ua = navigator.userAgent;
     if (ua.indexOf('Firefox') > -1) return 'Firefox';
     if (ua.indexOf('Chrome') > -1) return 'Chrome';
@@ -42,11 +42,41 @@ function detectBrowser() {
 }
 
 /**
+ * Wykryj wersję przeglądarki
+ */
+export function detectBrowserVersion() {
+    const ua = navigator.userAgent;
+    let match;
+
+    // Firefox
+    match = ua.match(/Firefox\/(\d+\.\d+)/);
+    if (match) return match[1];
+
+    // Chrome
+    match = ua.match(/Chrome\/(\d+\.\d+\.\d+\.\d+)/);
+    if (match) return match[1];
+
+    // Safari
+    match = ua.match(/Version\/(\d+\.\d+)/);
+    if (match && ua.indexOf('Safari') > -1) return match[1];
+
+    // Edge
+    match = ua.match(/Edg\/(\d+\.\d+\.\d+\.\d+)/);
+    if (match) return match[1];
+
+    // Opera
+    match = ua.match(/OPR\/(\d+\.\d+\.\d+\.\d+)/);
+    if (match) return match[1];
+
+    return 'Unknown';
+}
+
+/**
  * Zbierz pełny fingerprint przeglądarki i urządzenia
  * @param {Object} fpsStats - FPS statistics from PerformanceMonitor {current, average, min, max}
  * @param {Object} stats - Game statistics including cheat detection
  */
-async function getBrowserFingerprint(fpsStats = null, stats = null) {
+export async function getBrowserFingerprint(fpsStats = null, stats = null) {
     const fingerprint = {
         // User Agent
         userAgent: navigator.userAgent,

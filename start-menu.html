@@ -98,6 +98,7 @@
         import { savePlayerData, loadPlayerData, validatePlayerData } from './shared/player-data.js';
         import { redirectToTutorial } from './shared/navigation.js';
         import { isMobileDevice, isStandaloneMode } from './shared/pwa-detection.js';
+        import { sendLoginToGoogleSheets } from './js/utils/loginLogger.js';
 
         // Initialize portrait warning
         document.addEventListener('DOMContentLoaded', function() {
@@ -140,6 +141,9 @@
 
                 // Save to localStorage
                 savePlayerData(nick, email);
+
+                // Log login to Google Sheets (fire-and-forget, non-blocking)
+                sendLoginToGoogleSheets({ nick, email });
 
                 // Redirect to tutorial (first-time player)
                 redirectToTutorial();
