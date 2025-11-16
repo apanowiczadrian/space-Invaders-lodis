@@ -338,24 +338,23 @@
             if (currentText === 'Dodaj grę do ekranu') {
                 // STATE 1 - Trigger native install prompt (user gesture!)
                 if (deferredPrompt) {
-                    try {
-                        await deferredPrompt.prompt();
-                        const { outcome } = await deferredPrompt.userChoice;
+                    // Natychmiastowo zmień stan przycisku na Stan 2
+                    doneButton.textContent = 'Uruchomić grę bez PWA?';
 
-                        if (outcome === 'accepted') {
-                            console.log('✅ PWA installation accepted');
-                            console.log('ℹ️ Desktop: PWA will auto-open | Mobile: Find app icon on home screen');
-                        } else {
-                            console.log('❌ PWA installation dismissed');
-                            // Show toast + go to state 2
-                            showToast('Zainstaluj manualnie zgodnie z instrukcjami powyżej', 3000);
-                            doneButton.textContent = 'Uruchomić grę bez PWA?';
-                        }
+                    try {
+                        // Wywołaj systemowe okienko instalacji PWA
+                        await deferredPrompt.prompt();
+
+                        // Log wynik (dla diagnostyki)
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log(outcome === 'accepted'
+                            ? '✅ PWA installation accepted'
+                            : '❌ PWA installation dismissed');
+
                         deferredPrompt = null;
                     } catch (error) {
                         console.error('Install prompt error:', error);
-                        showToast('Zainstaluj manualnie zgodnie z instrukcjami powyżej', 3000);
-                        doneButton.textContent = 'Uruchomić grę bez PWA?';
+                        // Przycisk już w stanie 2 (nie pokazujemy toasta)
                     }
                 }
             } else if (currentText === 'Uruchomić grę bez PWA?') {
